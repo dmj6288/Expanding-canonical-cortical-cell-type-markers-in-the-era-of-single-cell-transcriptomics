@@ -1,1 +1,9 @@
-Readme
+CellBender scripts contain the scripts used to remove ambient RNA contamination from single-cell data for all the datasets. (Corresponding reports are also provided)
+
+Server scripts refer to the upstream pipeline used for single-cell QC, metadata matching, pseudo-bulk aggregation and differential expression analysis (QC reports provided)
+
+CortexMapper scripts refers to the RShiny app used to deploy the app at 
+
+Source files required for running Figures 1-4 and the global single-cell file and associated metadata post QC are available at GEO are available on GEO Accession number:
+
+
