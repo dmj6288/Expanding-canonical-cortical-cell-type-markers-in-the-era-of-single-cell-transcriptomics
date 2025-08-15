@@ -1,0 +1,29 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/CellBender_scripts/slurm-archive/%j.out
+
+module load cuda/11.7
+
+conda activate cellbender
+
+cd $SLURM_SUBMIT_DIR
+
+cd cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/PFCK
+
+cellbender remove-background \
+                        --input "/home/dennis00/Yi_lab/raw_h5_data/Kanton_h5/Kanton_adult.h5" \
+                        --output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/PFCK/PFCK.h5" \
+                        --cuda \
+                        --expected-cells 50000 \
+                        --total-droplets-included 80000 \
+                        --low-count-threshold 15 \
+                        --learning-rate 1e-4 \
+                        --fpr 0.01 \
+                        --epochs 150
+
+echo cellbender_Kanton_Adult
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"
+

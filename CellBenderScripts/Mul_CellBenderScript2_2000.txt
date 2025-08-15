@@ -1,0 +1,32 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/MarkerPaper/slurm_archive/Mul_NoPC_%j.out
+               
+module load cuda/11.7
+
+conda activate cellbender
+
+cd $SLURM_SUBMIT_DIR
+
+cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/Mul/
+
+REPS="M1lm  M1ul  S1lm  S1ul"
+
+for p in $REPS
+	do
+		cellbender remove-background \
+		--input "/home/dennis00/Yi_lab/MarkerPaper/CellBender_RawDataMarkerPaper/Mul_NoPC/${p}.h5" \
+		--output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/Mul_NoPC/${p}.h5" \
+		--cuda \
+                --expected-cells 2000 \
+                --total-droplets-included 2800 \
+		--low-count-threshold 15 \
+		--learning-rate 1e-4 \
+		--fpr 0.01 \
+		--epochs 350
+done
+
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"

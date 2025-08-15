@@ -1,0 +1,40 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/CellBender_scripts/slurm-archive/%j_h12.out
+
+module load cuda/11.7
+
+cd $SLURM_SUBMIT_DIR
+
+conda activate cellbender
+
+cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/PCC/h12
+
+REPS="h"
+
+for p in $REPS
+do
+        for i in {1..2}
+        do
+        folder_name="${p}${i}"
+        echo $folder_name
+                  cellbender remove-background \
+                        --input "/home/dennis00/Yi_lab/raw_h5_data/Caglayan_h5/${folder_name}.h5" \
+                        --output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/PCC/${folder_name}.h5" \
+                        --cuda \
+                        --expected-cells 15000 \
+                        --total-droplets-included 30000 \
+                        --low-count-threshold 15 \
+                        --learning-rate 1e-4 \
+                        --fpr 0.01 \
+                        --epochs 150
+
+                echo $i
+        done
+done
+
+echo Exec_cellbend_h12.txt
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"

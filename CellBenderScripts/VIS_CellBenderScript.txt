@@ -1,0 +1,27 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/MarkerPaper/slurm_archive/VIS_%j.out
+
+module load cuda/11.7
+
+conda activate cellbender
+
+cd $SLURM_SUBMIT_DIR
+
+cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/VIS/
+
+cellbender remove-background \
+         --input "/home/dennis00/Yi_lab/MarkerPaper/CellBender_RawDataMarkerPaper/VIS/VIS.h5" \
+         --output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/VIS/VIS.h5" \
+         --cuda \
+         --expected-cells 16000 \
+         --total-droplets-included 19000 \
+         --low-count-threshold 15 \
+         --learning-rate 1e-4 \
+         --fpr 0.01 \
+         --epochs 150
+
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"

@@ -1,0 +1,32 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/MarkerPaper/slurm_archive/PFCA_%j.out
+               
+module load cuda/11.7
+
+conda activate cellbender
+
+cd $SLURM_SUBMIT_DIR
+
+cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/PFCA/A/
+
+REPS="335C"
+
+for p in $REPS
+	do
+		cellbender remove-background \
+		--input "/home/dennis00/Yi_lab/MarkerPaper/CellBender_RawDataMarkerPaper/PFCA/${p}.h5" \
+		--output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/PFCA/${p}.h5" \
+		--expected-cells 50000 \
+                --total-droplets-included 60000 \
+		--cuda \
+		--low-count-threshold 15 \
+		--learning-rate 1e-4 \
+		--fpr 0.01 \
+		--epochs 150
+done
+
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"

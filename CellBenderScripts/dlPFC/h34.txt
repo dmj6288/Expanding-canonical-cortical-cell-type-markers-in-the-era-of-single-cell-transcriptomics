@@ -1,0 +1,40 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/CellBender_scripts/slurm-archive/%j_dlPFC_h34.out
+
+module load cuda/11.7
+
+cd $SLURM_SUBMIT_DIR
+
+conda activate cellbender
+
+cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/dlPFC
+
+REPS="HSB106 HSB628 HSB189 HSB340"
+
+for p in $REPS
+do
+	for i in {3..4}
+	do
+	folder_name="${p}_${i}"
+	echo $folder_name
+		  cellbender remove-background \
+                  	--input "/home/dennis00/Yi_lab/raw_h5_data/Ma_h5/${folder_name}.h5" \
+	                --output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/dlPFC/${folder_name}.h5" \
+                  	--cuda \
+                   	--expected-cells 25000 \
+                  	--total-droplets-included 40000 \
+                 	--low-count-threshold 15 \
+                  	--learning-rate 1e-4 \
+                  	--fpr 0.01 \
+                 	--epochs 150
+
+		echo $i
+	done
+done
+
+echo cellbender_Ma_human
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"

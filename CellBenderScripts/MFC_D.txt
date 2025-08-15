@@ -1,0 +1,34 @@
+#!/bin/bash -l
+
+#SBATCH -N 1 --ntasks-per-node=6 --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --job-name="PAIR"
+#SBATCH --output=/home/dennis00/Yi_lab/MarkerPaper/slurm_archive/MFC_PC_%j.out
+
+echo Hi
+module load cuda/11.7
+
+conda activate cellbender
+
+cd $SLURM_SUBMIT_DIR
+
+cd /home/dennis00/Yi_lab/MarkerPaper/CellBenderScripts/MFC/D/
+
+REPS="CT_02_11"
+
+for p in $REPS
+	do
+	cellbender remove-background \
+           --input "/home/dennis00/Yi_lab/MarkerPaper/CellBender_RawDataMarkerPaper/MFC/${p}.h5" \
+           --output "/home/dennis00/Yi_lab/MarkerPaper/CellBender_ProcessedDataMarkerPaper/MFC/${p}.h5" \
+           --cuda \
+           --expected-cells 1200 \
+           --total-droplets-included 1700 \
+           --low-count-threshold 15 \
+           --learning-rate 1e-4 \
+           --fpr 0.01 \
+           --epochs 150
+done
+
+echo cellbender_Ma_human
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"
