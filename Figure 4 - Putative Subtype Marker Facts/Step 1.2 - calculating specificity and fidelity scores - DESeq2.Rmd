@@ -1,0 +1,190 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+DE_tables <- readRDS("source/DE_results_RN011.rds")
+
+```
+
+```{r}
+
+all_cell_types <- c()
+region_vector  <- c()
+
+for (region in names(DE_tables)){
+  
+  all_cell_types <- c(all_cell_types, names(DE_tables[[region]]))
+  region_vector  <- c(region_vector, rep(region, length(names(DE_tables[[region]]))))
+  print(names(DE_tables[[region]]))
+  
+}
+
+df <- as.data.frame(cbind(all_cell_types, region_vector))
+#write.csv(unique(all_cell_types), "interm/initial_subtypes.csv")
+
+#df <- df[!duplicated(df$all_cell_types), ]
+#write.csv(df, "interm/initial_subtypes_with_Regions_v2.csv")
+
+```
+
+```{r}
+
+agg_matrix_with_tau_index <- list()
+
+for (name in names(DE_tables)){
+
+  current_agg_matrix <- readRDS(paste0("source/agg_matrix_RN011/", name, ".rds"))
+  colnames(current_agg_matrix)  <- tstrsplit(colnames(current_agg_matrix), "_#", fixed=TRUE)[[1]]
+
+  grouped_mat <- sapply(unique(colnames(current_agg_matrix)),
+                        function(col) rowSums(current_agg_matrix[, colnames(current_agg_matrix) == col, drop = FALSE]))
+
+  current_column_names <- colnames(grouped_mat)
+  # 
+  # for (cell in colnames(grouped_mat)){
+  # 
+  #   #current_column_names <- c(current_column_names, rename_list[[cell]])
+  #   current_column_names <- c(current_column_names, cell)
+  # 
+  # }
+
+  
+  colData <- data.frame(
+  sampleCondition = factor(rep("condition1", length(current_column_names))) # Assuming 10 samples
+  )
+  
+  #colnames(grouped_mat) <- current_column_names
+  normalized_data       <- DESeq2_normalization(grouped_mat, colData = colData)
+  
+  print(dim(normalized_data))
+
+  #rownames(normalized_data)         <- rownames(grouped_mat)
+  normalized_data                   <- na.omit(normalized_data)
+  
+  max_values <- apply(normalized_data, 1, max)
+  
+  # Divide each column by its maximal value
+  zero_to_one_normalized_matrix <- sweep(normalized_data, 1, max_values, FUN="/")
+  
+  #zero_to_one_normalized_matrix <- normalized_data_matrix/apply(normalized_data_matrix, 2, max)
+  specificity_values            <- (length(colnames(zero_to_one_normalized_matrix)) - rowSums(zero_to_one_normalized_matrix))/
+    (length(colnames(zero_to_one_normalized_matrix)) - 1)
+  
+  combined_spec_exp <- cbind(zero_to_one_normalized_matrix, specificity_values)
+
+  # Add τ as a new column to the data
+  #data_with_tau <- cbind(normalized_data, Specificity_Index = tau_values)
+
+  agg_matrix_with_tau_index[[name]] <- combined_spec_exp
+
+}
+
+#saveRDS(agg_matrix_with_tau_index, "interm/agg_matrix_with_tau_index_DESeq2_RN009.rds")
+
+```
+
+```{r}
+library(dplyr)
+
+region_DE_genes <- list()
+
+tau_index_by_region <- agg_matrix_with_tau_index
+
+for (region in names(DE_tables)){
+
+  region_DE_cell <- list()
+
+  for (cell in names(DE_tables[[region]])){
+
+    current_tau_index_table <- tau_index_by_region[[region]]
+    current_table           <- na.omit(DE_tables[[region]][[cell]])
+
+    current_tau_index_table <- data.frame(Gene = rownames(current_tau_index_table), current_tau_index_table, row.names = NULL)
+
+    if (is.null(dim(DE_tables[[region]][[cell]])) == FALSE){
+
+      current_table          <- data.frame(Gene = rownames(current_table), current_table, row.names = NULL)
+
+      # Perform a full join
+      merged_table           <- full_join(current_tau_index_table, current_table, by = "Gene")
+
+      # Optional: Set row names back to 'Gene' if required
+      rownames(merged_table) <- merged_table$Gene
+      merged_table           <- na.omit(merged_table[, -1])
+
+      final_table            <- merged_table[, !names(merged_table) %in% c(cell_names, "baseMean", "lfcSE", "pvalue")]
+
+      region_DE_cell[[cell]] <- final_table
+
+     }else{
+
+       region_DE_cell[[cell]] <- c()
+
+     }
+
+  }
+
+  region_DE_genes[[region]] <- region_DE_cell
+
+}
+
+#saveRDS(region_DE_genes, "interm/final_DE_table_with_DESeq2_specificity_RN009.rds")
+
+```
+
+```{r}
+
+library(dplyr)
+library(data.table)
+
+region_DE_fidelity <- list()
+
+for (region in names(region_DE_genes)){
+  
+  region_DE_cell_fidelity <- list()
+
+  fidelity_scores <- readRDS(paste0("source/fidelity_metrics_RN011/", tstrsplit(region, "_1")[[1]], ".rds"))
+
+  for (cell in names(region_DE_genes[[region]])){
+
+    current_fidelity_score  <- fidelity_scores[fidelity_scores$cluster == cell, ]
+    current_table           <- na.omit(region_DE_genes[[region]][[cell]])
+
+    current_fidelity_score_table <- data.frame(current_fidelity_score, row.names = NULL)
+    colnames(current_fidelity_score_table)[1] <- "Gene"
+
+    if (is.null(dim(DE_tables[[region]][[cell]])) == FALSE){
+
+      current_table          <- data.frame(Gene = rownames(current_table), current_table, row.names = NULL)
+
+      # Perform a full join
+      merged_table           <- full_join(current_fidelity_score_table, current_table, by = "Gene")
+
+      # Optional: Set row names back to 'Gene' if required
+      rownames(merged_table) <- merged_table$Gene
+      final_table           <- na.omit(merged_table[, -1])
+      colnames(final_table)[2:3] <- c("fidelity", "background")
+
+      region_DE_cell_fidelity[[cell]] <- final_table[, c("cluster", "fidelity", "background", "specificity_values", "log2FoldChange", "padj")]
+
+     }else{
+
+       region_DE_cell_fidelity[[cell]] <- c()
+
+     }
+
+  }
+
+  region_DE_fidelity[[region]] <- region_DE_cell_fidelity
+
+}
+
+saveRDS(region_DE_fidelity, "interm/final_DE_table_with_DESeq2_specificity_and_fidelity_RN011.rds")
+
+```
+

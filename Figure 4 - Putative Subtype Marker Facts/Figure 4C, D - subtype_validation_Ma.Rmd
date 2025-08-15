@@ -1,0 +1,77 @@
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+meta_data <- readxl::read_xlsx("source/snRNA-seq_Human_cell_meta.xlsx")
+
+```
+
+
+```{r}
+
+canonical_dlPFC_subtypes <- unique(c(tstrsplit(meta_data$subtype, " ")[[2]], tstrsplit(meta_data$subtype, " ")[[3]]))
+#saveRDS(canonical_dlPFC_subtypes, "interm/canonical_dlPFC_subtypes_RN012.rds")
+
+```
+
+```{r}
+
+subtype_markers       <- read.csv("interm/subtype_DEG_table_top15_without_specificity.csv")
+subtype_markers_dlPFC <- subtype_markers[subtype_markers$Region == "dlPFC", ]$DEGs
+
+```
+
+
+```{r}
+
+subtype_validation_metrics <- as.data.frame(c(0.1620718, 0.6725206, 0.9503972, 0.8756195, 0.9684025, 0.9285745))
+
+subtype_validation_metrics$metric <- c("ARI", "ARI", "Accuracy", "F1", "Accuracy", "F1")
+subtype_validation_metrics$type   <- c("Canonical", "Putative", "Canonical", "Canonical",  "Putative", "Putative")
+subtype_validation_metrics$type <- as.factor(subtype_validation_metrics$type)
+colnames(subtype_validation_metrics)[1] <- "value"
+
+library(ggplot2)
+
+p <- ggplot(subtype_validation_metrics, aes(x = metric, y = value, fill = type)) +
+  geom_bar(stat = "identity", position = position_dodge(), color     = "black", linewidth = 0.4, width = 0.5) +         # border width (use linewidth = 1.5 if your ggplot2 >= 3.4.0)) +
+  theme_classic() +
+  scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+   scale_color_manual(values = c("black", "black")) +
+  theme(legend.position = "none", axis.title.x.bottom = element_blank(), axis.title.y.left = element_blank()) +
+  labs(x = "Metric",
+       y = "Score",
+       fill = "Type") 
+
+p
+ggsave(filename = "figures/subtype_validation_dlPFC.png", plot = p, width = 1200, height = 900, units = "px", device = "png")
+
+```
+
+```{r}
+
+suppressWarnings(suppressMessages(library(VennDiagram)))
+suppressWarnings(suppressMessages(library(ggplot2)))
+suppressWarnings(suppressMessages(library(ggplotify)))
+suppressWarnings(suppressMessages(library(ggpubr)))
+suppressWarnings(suppressMessages(library(ggVennDiagram)))
+suppressWarnings(suppressMessages(library(gmp)))
+suppressWarnings(suppressMessages(library(hash)))
+suppressWarnings(suppressMessages(library(gridExtra)))
+
+draw.pairwise.venn(area1 = length(canonical_dlPFC_subtypes), 
+                   area2 = length(unique(subtype_markers_dlPFC)),
+              cross.area = length(intersect(canonical_dlPFC_subtypes,
+                                            unique(subtype_markers_dlPFC))), 
+                   fill = "white", col = c("#4682B4", "#4BB446"), lwd = 5, 
+                  alpha = c(0.5, 0.5), cex = 2.5, 
+                 scaled = TRUE, cat.cex = 2, 
+                cat.pos = 1, inverted = TRUE)
+
+```
+
+
