@@ -1,0 +1,63 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+list_of_metadata_file_names <- list.files(source_file_path_preQC)
+list_of_regions             <- tstrsplit(list_of_metadata_file_names, ".rds", fixed=TRUE)[[1]]
+
+```
+
+
+```{r}
+
+table_of_number_of_each_celltype <- c()
+
+for (metadata_file_name in list_of_metadata_file_names){
+  
+  current_metadata_file <- readRDS(paste0(source_file_path_preQC, metadata_file_name))
+  cell_type_frequency   <- as.list(table(current_metadata_file$trad))
+  
+  #name_vector <- c()
+  
+  # print(names(cell_type_frequency))
+  # 
+  # for (cell in names(cell_type_frequency)){
+  # 
+  #   name_vector <- c(name_vector, rename_list[[cell]])
+  # 
+  # }
+
+  #names(cell_type_frequency) <- name_vector
+  remaining <- setdiff(unlist(rename_list), names(cell_type_frequency))
+
+  for (rem in remaining){
+
+    cell_type_frequency[[rem]] <- list()
+
+  }
+
+  data_df <- as.data.frame(lapply(cell_type_frequency, function(x) if (length(x) == 0) NA else x))
+  data_df[is.na(data_df)] <- 0
+  data_df <- data_df[, order(names(data_df))]
+
+  table_of_number_of_each_celltype <- rbind(table_of_number_of_each_celltype,
+                                            c(data_df))
+
+}
+
+rownames(table_of_number_of_each_celltype) <- list_of_regions
+df <- as.data.frame(table_of_number_of_each_celltype)
+
+```
+
+```{r}
+
+write.xlsx(df, "results/Supplementary Table 2A - preQC.xlsx", rowNames=TRUE)
+
+```
+

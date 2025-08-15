@@ -1,0 +1,215 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+
+
+```{r}
+
+agg_matrices <- list.files("source/agg_matrices_RN012/")
+
+gene_list <- list()
+
+for (agg in agg_matrices){
+
+  current_agg <- readRDS(paste0("source/agg_matrices_RN012/", agg))
+  gene_list[[agg]] <- rownames(current_agg)
+
+}
+
+common_genes <- Reduce(intersect, gene_list)
+saveRDS(common_genes, "interm/common_genes_agg_RN012.rds")
+
+```
+
+
+```{r}
+
+agg_matrices <- list.files("source/agg_matrices_RN012/")
+common_genes <- readRDS("interm/common_genes_agg_RN012.rds")
+
+full_matrix <- c()
+all_sample_cell_types <- c()
+
+for (agg in agg_matrices){
+  
+  current_agg <- readRDS(paste0("source/agg_matrices_RN012/", agg))
+  
+  current_cell_names <- tstrsplit(colnames(current_agg), "_", fixed=TRUE)[[1]]
+  
+  if (agg == "MFC_1.rds"){
+    
+    current_samples    <- paste(tstrsplit(colnames(current_agg), "_", fixed=TRUE)[[2]],
+                                tstrsplit(colnames(current_agg), "_", fixed=TRUE)[[3]],
+                                tstrsplit(colnames(current_agg), "_", fixed=TRUE)[[4]], sep = "_")
+                                
+    
+  }else{
+    
+    current_samples    <- tstrsplit(colnames(current_agg), "_", fixed=TRUE)[[2]]
+    
+  }
+  
+  new_cell_names <- c()
+  for (cell in current_cell_names){
+    
+    new_cell_names <- c(new_cell_names, rename_list[[cell]])
+    
+  }
+  
+  region      <- tstrsplit(agg, "_1.rds", fixed=TRUE)[[1]]
+  
+  final_columns <- paste(new_cell_names, current_samples, rep(region, length(current_samples)), sep = "_")
+  colnames(current_agg) <- final_columns
+  
+  
+  full_matrix <- cbind(full_matrix, current_agg[common_genes, ])
+  all_sample_cell_types <- c(all_sample_cell_types, new_cell_names)
+  
+}
+
+```
+
+
+```{r}
+
+saveRDS(full_matrix, "interm/heatmap_matrix_RN012.rds")
+
+```
+
+
+
+```{r}
+
+meta_file_path <- "source/coldata_RN012/"
+meta_files <- list.files(meta_file_path)
+
+all_metadata  <- c()
+
+meta_files <- meta_files[meta_files %in% c("MTG_1.rds", "MTGA_1.rds") == FALSE]
+
+for (file in meta_files){
+  
+  current_file <- readRDS(paste0(meta_file_path, file))
+  current_file <- current_file[, c("cluster_id", "sample_id", "human_age", "sex")]
+  df_metadata  <- current_file[!duplicated(current_file), ]
+  
+  if(file == "MFC_1.rds"){
+    
+    rownames(df_metadata) <- paste0(df_metadata$cluster_id, "_", 
+                                  tstrsplit(df_metadata$sample_id, "_")[[1]], "_",
+                                  tstrsplit(df_metadata$sample_id, "_")[[2]], "_",
+                                  tstrsplit(df_metadata$sample_id, "_")[[3]], "_",
+                                  tstrsplit(file, ".rds")[[1]])
+    
+  }else{
+    
+    rownames(df_metadata) <- paste0(df_metadata$cluster_id, "_", 
+                                  tstrsplit(df_metadata$sample_id, "_")[[1]], "_",
+                                  tstrsplit(file, ".rds")[[1]])  
+    
+    df_metadata$sample_id <- tstrsplit(df_metadata$sample_id, "_")[[1]]
+    
+  }
+  
+  df_metadata$region <- tstrsplit(file, "_1.rds")[[1]]
+  
+  all_metadata <- rbind(all_metadata, df_metadata)
+  
+}
+
+#rownames(all_metadata) <- tstrsplit(rownames(all_metadata), "_1", fixed=TRUE)[[1]]
+
+```
+
+# IMPORT FILTERED COLUMNS
+
+```{r}
+
+filtered_column_names <- readRDS("interm/pseudo_bulk_QC_columns.rds")
+full_matrix           <- readRDS("interm/heatmap_matrix_RN012.rds")
+
+colnames(full_matrix) <- paste0(colnames(full_matrix), "_1")
+filtered_column_names <- paste0(filtered_column_names, "_1")
+
+filtered_count_matrix <- full_matrix[, filtered_column_names]
+filtered_metadata     <- all_metadata[filtered_column_names, ]
+
+# Ensure row orders match between gene expression and metadata
+
+all(sort(colnames(filtered_count_matrix)) == sort(rownames(filtered_metadata)))
+
+```
+
+```{r}
+
+saveRDS(filtered_count_matrix, "interm/sample_wise30_count_matrix_RAW_RN012.rds")
+saveRDS(filtered_metadata,     "interm/sample_wise30_pseudobulk_all_metadata_RN012.rds")
+
+```
+
+```{r}
+
+colData <- data.frame(
+  sampleCondition = factor(rep("condition1", length(colnames(filtered_count_matrix)))) # Assuming 10 samples
+  )
+
+DESeq2_data  <- DESeq2_normalization(filtered_count_matrix, colData = colData)
+
+#table(apply(filtered_DESeq_matrix, 1, mean))
+
+saveRDS(DESeq2_data[[1]], "interm/DESeq2_normalized_counts.rds")
+saveRDS(DESeq2_data[[2]], "interm/dds.rds")
+
+
+```
+
+
+```{r}
+
+# 1. Get the column names
+colnames_vec <- colnames(filtered_count_matrix)
+
+# 2. Extract the second-to-last element from each column name
+get_celltype_region <- function(x) {
+  parts <- strsplit(x, "_")[[1]]
+  if (length(parts) >= 2) {
+    cell_type <- parts[1]
+    region    <- parts[length(parts) - 1]
+    return(paste(cell_type, region, sep = "_"))
+  } else {
+    return(NA)
+  }
+}
+# Apply to all column names
+region_labels <- sapply(colnames_vec, get_celltype_region)
+
+# 3. Aggregate columns by summing over those with the same region label
+# Convert to data frame to use aggregate
+df <- as.data.frame(filtered_count_matrix)
+
+# Transpose so that regions are rows, then aggregate, then transpose back
+df_t <- t(df)
+df_agg <- aggregate(df_t, by = list(region = region_labels), FUN = sum)
+
+# Restore gene-wise format by transposing again
+agg_mat <- t(df_agg[, -1])
+colnames(agg_mat) <- df_agg$region
+rownames(agg_mat) <- rownames(filtered_count_matrix)
+
+
+agg_mat_colData <- data.frame(
+  sampleCondition = factor(rep("condition1", length(colnames(agg_mat)))) # Assuming 10 samples
+  )
+
+agg_mat_DESeq2_data  <- DESeq2_normalization(agg_mat, colData = agg_mat_colData)
+
+saveRDS(agg_mat_DESeq2_data[[1]], "interm/agg_mat_DESeq2_normalized_counts.rds")
+saveRDS(agg_mat_DESeq2_data[[2]], "interm/agg_mat_dds.rds")
+
+```
+
+

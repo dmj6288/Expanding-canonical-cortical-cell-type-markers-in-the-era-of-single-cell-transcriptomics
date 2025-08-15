@@ -1,0 +1,54 @@
+Call:
+lm(formula = mean_fid ~ mean_bg, data = df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-42.783 -17.530   2.685  17.664  31.946 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)   52.250      3.880  13.465  < 2e-16 ***
+mean_bg        0.640      0.218   2.935  0.00523 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 21.96 on 45 degrees of freedom
+Multiple R-squared:  0.1607,	Adjusted R-squared:  0.142 
+F-statistic: 8.615 on 1 and 45 DF,  p-value: 0.005235
+
+
+Call:
+lm(formula = mean_fid ~ mean_bg, data = neuronal_df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-32.302 -17.326  -3.077   9.860  42.085 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  40.3543     6.4385   6.268 4.04e-06 ***
+mean_bg       0.7796     0.2648   2.944  0.00803 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 22.67 on 20 degrees of freedom
+Multiple R-squared:  0.3023,	Adjusted R-squared:  0.2674 
+F-statistic: 8.666 on 1 and 20 DF,  p-value: 0.008027
+
+Call:
+lm(formula = mean_fid ~ mean_bg, data = glial_df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-36.641 -11.054   1.868   8.619  25.544 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  55.7680     3.8547  14.467 4.87e-13 ***
+mean_bg       1.6866     0.4443   3.796 0.000933 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 16.12 on 23 degrees of freedom
+Multiple R-squared:  0.3852,	Adjusted R-squared:  0.3584 
+F-statistic: 14.41 on 1 and 23 DF,  p-value: 0.0009326

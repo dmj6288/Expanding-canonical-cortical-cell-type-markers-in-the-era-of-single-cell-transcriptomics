@@ -1,0 +1,156 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+full_count_matrix30          <- readRDS("interm/sample_wise30_count_matrix_RAW_RN012.rds")
+all_metadata30               <- readRDS("interm/sample_wise30_pseudobulk_all_metadata_RN012.rds")
+gene_lengths                 <- readRDS("source/gene_lengths_RN009.rds")
+
+```
+
+
+```{r}
+
+# Create a Seurat object from your pseudobulked matrix
+# Assuming `data` is a matrix with genes as rows and pseudobulked clusters as columns
+seurat_obj <- CreateSeuratObject(counts = as.matrix(full_count_matrix30))
+
+all_metadata30 <- all_metadata30[colnames(seurat_obj), ]
+seurat_obj@meta.data <- as.data.frame(all_metadata30)
+#print(identical(colnames(seurat_obj), rownames(all_metadata)))
+
+#seurat_obj@meta.data <- data.frame(all_metadata)
+
+# print(identical(colnames(seurat_obj), rownames(seurat_obj@meta.data)))
+# print(identical(colnames(seurat_obj), rownames(all_metadata)))
+  
+# Step 1: Normalize the data
+seurat_obj <- NormalizeData(seurat_obj, normalization.method = "LogNormalize", scale.factor = 10000)
+
+# Step 2: Identify variable features (genes with high variance)
+seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 2000)
+
+# Step 3: Scale the data (center and scale for PCA)
+seurat_obj <- ScaleData(seurat_obj, features = VariableFeatures(object = seurat_obj))
+
+# Step 4: Perform PCA
+seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
+
+# Step 5: Construct a k-NN graph
+seurat_obj <- FindNeighbors(seurat_obj, dims = 1:20)
+
+# Step 6: Perform graph-based clustering
+seurat_obj <- FindClusters(seurat_obj, resolution = 1)
+
+# Step 7: Retrieve cluster assignments
+clusters <- seurat_obj@meta.data$seurat_clusters
+
+# View cluster assignments
+table(clusters)
+
+# Run UMAP for visualization
+seurat_obj <- RunUMAP(seurat_obj, dims = 1:20)
+
+colors <- c( "green", "blue", "red", "violet", "orange", "brown")
+
+DimPlot(seurat_obj, reduction = "umap", group.by = "cluster_id", pt.size = 1.5, cols = colors)
+
+# Extract standard deviations of PCs
+stdev <- seurat_obj[["pca"]]@stdev
+
+# Compute variance explained
+variance_explained <- (stdev^2) / sum(stdev^2) * 100
+
+# Print variance explained for each PC
+variance_explained
+
+
+```
+
+```{r}
+
+# Step 5: Construct a k-NN graph
+seurat_obj <- FindNeighbors(seurat_obj, dims = 1:30)
+
+# Step 6: Perform graph-based clustering
+seurat_obj <- FindClusters(seurat_obj, resolution = 1.1)
+
+# Step 7: Retrieve cluster assignments
+clusters <- seurat_obj@meta.data$seurat_clusters
+
+# View cluster assignments
+table(clusters)
+
+# Run UMAP for visualization
+seurat_obj <- RunUMAP(seurat_obj, dims = 1:30, n.neighbors = 50, min.dist = 0.1)
+
+colors <- c( "green", "blue", "red", "violet", "orange", "brown")
+
+DimPlot(seurat_obj, reduction = "pca", group.by = "cluster_id", pt.size = 1.5, cols = colors)
+
+
+```
+
+
+```{r}
+
+gene_lengths$Length <- gene_lengths$Length/1000
+
+raw_count_matrix           <- seurat_obj@assays$RNA@layers$counts
+colnames(raw_count_matrix) <- colnames(seurat_obj)
+rownames(raw_count_matrix) <- rownames(seurat_obj)
+
+raw_count_matrix <- raw_count_matrix[gene_lengths$hgnc_symbol, ]
+
+full_TPM_matrix <- counts_to_tpm(raw_count_matrix, gene_lengths$Length)
+
+seurat_obj[["TPM"]] <- CreateAssayObject(counts = full_TPM_matrix)
+
+```
+
+
+```{r}
+
+colData <- data.frame(
+  sampleCondition = factor(rep("condition1", length(colnames(full_count_matrix30)))) # Assuming 10 samples
+  )
+
+DESeq2_data  <- DESeq2_normalization(full_count_matrix30, colData = all_metadata30)
+
+seurat_obj[["DESeq2"]] <- CreateAssayObject(counts = DESeq2_data[[1]])
+
+```
+
+
+```{r}
+
+DefaultAssay(seurat_obj) <- "DESeq2"
+
+  
+# Step 1: Normalize the data
+seurat_obj <- NormalizeData(seurat_obj, normalization.method = "LogNormalize", scale.factor = 10000)
+
+# Step 2: Identify variable features (genes with high variance)
+seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 2000)
+
+# Step 3: Scale the data (center and scale for PCA)
+seurat_obj <- ScaleData(seurat_obj, features = VariableFeatures(object = seurat_obj))
+
+# Step 4: Perform PCA
+seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
+
+DimPlot(seurat_obj, reduction = "pca", group.by = "cluster_id", pt.size = 4, cols = colors)
+
+```
+
+
+```{r}
+
+saveRDS(seurat_obj, "interm/final_seurat_object_RN012.rds")
+
+```

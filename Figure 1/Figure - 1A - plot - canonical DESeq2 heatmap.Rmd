@@ -1,0 +1,175 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+seurat_object <- readRDS("interm/final_seurat_object_RN012.rds")
+dds           <- readRDS("interm/dds.rds")
+
+```
+
+```{r}
+
+marker_lists        <- all_canonical_gene_list
+matrix_columns      <- tstrsplit(colnames(seurat_object), "_")[[1]]
+n_clusters          <- 6
+clustering_method   <- "ward.D2"
+performance_metrics <- c()
+
+map_height_factor   <- 1.1
+
+vst_data            <- vst(dds)
+vst_mat             <- assay(vst_data)
+
+saveRDS(vast_mat, "results/vst_mat.rds")
+
+canonical_vst_mat   <- vst_mat[rownames(vst_mat) %in% unlist(marker_lists), ]
+
+color_palette <- colorRampPalette(c("blue", "white", "red"))(50)
+  
+map_height <- 2000 + map_height_factor*dim(canonical_vst_mat)[1]
+
+inverse_gene_cell_hash <- list()
+
+for (key in names(all_canonical_gene_list)){
+  for (gene in all_canonical_gene_list[[key]]){
+    inverse_gene_cell_hash[[gene]] <- key
+  }
+}
+
+#scaled_global_count_matrix              <- scaled_global_count_matrix[random_sample, ]
+
+df_row                                  <- data.frame(unlist(all_canonical_gene_list))
+rownames(df_row)                        <- unlist(all_canonical_gene_list)
+colnames(df_row)                        <- "Marker"
+
+for(marker in df_row$Marker){
+  df_row[marker, "color"] <- paste0(inverse_gene_cell_hash[[marker]], " marker")
+}
+df_row <- df_row[-c(1)]
+
+df_col                                  <- data.frame(matrix_columns)
+rownames(df_col)                        <- colnames(canonical_vst_mat)
+colnames(df_col)                        <- "Cell Type"
+
+  # Load RColorBrewer for color palettes
+
+colors <- c("red", "green", "blue", "orange", "violet", "brown")#brewer.pal(6, "Set1")
+
+# Define your colors as a named vector
+color_vector <- c(
+    "Astro marker"   = colors[1],
+    "Excite marker"  = colors[2],
+    "Inhibit marker" = colors[3],
+    "Micro marker"   = colors[4],
+    "Oligo marker"   = colors[5],
+    "OPC marker"     = colors[6]
+)
+  
+# Define your colors as a named vector
+cell_vector <- c(
+    "Astro"   = colors[1],
+    "Excite"  = colors[2],
+    "Inhibit" = colors[3],
+    "Micro"   = colors[4],
+    "Oligo"   = colors[5],
+    "OPC"     = colors[6]
+  )
+
+
+ annotation_colors <- list()
+
+ annotation_colors$color <- color_vector
+ annotation_colors$`Cell Type` <- cell_vector
+ 
+ 
+png(paste0("figures/canonical_heatmap_46.png"), width = 2400, height = map_height)
+
+pheatmap(
+canonical_vst_mat,
+cluster_rows = TRUE,
+cluster_cols = TRUE,
+show_rownames = TRUE,
+show_colnames = TRUE,
+annotation_col = df_col,
+annotation_row = df_row,
+annotation_colors = annotation_colors,
+fontsize_col = 5,
+fontsize_row = 10,
+fontsize = 25,
+cellwidth = 6,
+cellheight = 10,
+treeheight_row = 0,
+treeheight_col = 0,
+clustering_method = "ward.D2",
+legend = TRUE,                  # Ensure color bar is shown
+legend_labels = NULL,           # Use default labels (or specify custom)
+legend_breaks = NULL,           # Use default breakpoints
+border_color = NA,              # Remove borders if unnecessary
+color = colorRampPalette(c("blue", "white", "red"))(50), # Custom color palette
+angle_col = 90
+)
+
+dev.off()
+
+```
+
+
+```{r}
+
+mean_and_sd_data <- c()
+
+for (cell in cell_names){
+  
+  for (gene in all_canonical_gene_list[[cell]]){
+   
+    if (gene != "HLA-DRA"){
+     
+      mean_and_sd_data <- rbind(mean_and_sd_data, 
+                              c(gene, mean(canonical_vst_mat[gene, tstrsplit(colnames(canonical_vst_mat), "_")[[1]] == cell]), 
+                                      sd(canonical_vst_mat[gene, tstrsplit(colnames(canonical_vst_mat), "_")[[1]] == cell])))
+       
+    }
+    
+  }
+  
+}
+
+write.csv(as.data.frame(mean_and_sd_data), "results/cluster_wise_mean_and_sd_canonical_markers.csv")
+
+df <- as.data.frame(mean_and_sd_data)
+colnames(df) <- c("Gene","Mean expression", "SD")
+write_xlsx(df, "results/Supplementary Table S3 - Final Canonical marker list.xlsx")
+
+```
+
+```{r}
+
+dist_matrix <- dist(t(canonical_vst_mat), method = "euclidean")
+hc          <- hclust(dist_matrix,  method = "ward.D2")
+
+# Plot the dendrogram
+
+# output_file <- file.path(paste0("dendrograms/", criterion, ".png"))
+# png(output_file, width = 1200, height = 800)
+# plot(dend_colored, main = criterion)
+# dev.off()
+# 
+# 
+# dend_colored <- color_branches(dend, k = n_clusters)
+
+predicted_labels  <- cutree(hc, k = 6)
+silhouette_values <- silhouette(predicted_labels, dist_matrix)
+
+avg_silhouette <- mean(silhouette_values[, 3])
+
+ari <- adjustedRandIndex(matrix_columns, predicted_labels)
+
+
+```
+
+

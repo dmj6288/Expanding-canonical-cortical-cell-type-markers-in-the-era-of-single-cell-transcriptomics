@@ -1,0 +1,72 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+metadata_files <- list.files("source/coldata_RN012/")
+metadata_files <- metadata_files[metadata_files %in% c("MTG_1.rds", "MTGA_1.rds") == FALSE]
+
+all_metadata_single_cell <- c()
+
+for (metadata_file in metadata_files){
+  
+  current_metadata <- readRDS(paste0("source/coldata_RN012/", metadata_file))
+  # print(metadata_file)
+  # print(colnames(current_metadata))
+  current_metadata <- current_metadata[, c("cluster_id", "sample_id")]
+  current_metadata$region <- tstrsplit(metadata_file, "_1.rds", fixed=TRUE)[[1]]
+  
+  if(metadata_file %in% c("PFCV_1.rds", "ACCV_1.rds")){
+    
+    current_metadata$sample_id <- tstrsplit(current_metadata$sample_id, "_")[[1]]
+  }
+  
+  
+  #all_metadata <- rbind(all_metadata, df_metadata)
+  
+  all_metadata_single_cell <- rbind(all_metadata_single_cell, current_metadata) 
+  
+}
+
+all_metadata_single_cell <- data.frame(all_metadata_single_cell)
+
+
+summary <- all_metadata_single_cell %>%
+  group_by(cluster_id, sample_id, region) %>%
+  summarise(row_count = n(), .groups = 'drop')
+
+# > summary
+# # A tibble: 426 × 4
+#    cluster_id sample_id region row_count
+#    <fct>      <fct>     <chr>      <int>
+#  1 Excite     H200.1023 A1C         1436
+#  2 Excite     H200.1023 CgG         1250
+#  3 Excite     H200.1023 M1lm         678
+#  4 Excite     H200.1023 M1ul         586
+#  5 Excite     H200.1023 MTGC        6498
+#  6 Excite     H200.1023 S1lm         566
+#  7 Excite     H200.1023 S1ul         507
+#  8 Excite     H200.1023 V1C         1735
+#  9 Excite     H200.1025 A1C         1167
+# 10 Excite     H200.1025 CgG          653
+# # ℹ 416 more rows
+# # ℹ Use `print(n = ...)` to see more rows
+
+filtered_summary <- summary[summary$row_count > 30, ]
+dim(filtered_summary)
+
+pseudo_bulk_columns <- paste0(filtered_summary$cluster_id, "_",
+                              filtered_summary$sample_id,  "_",
+                              filtered_summary$region)
+
+final_columns <- pseudo_bulk_columns[pseudo_bulk_columns %in% c("Oligo_H18.30.001_M1") == FALSE]
+final_columns <- final_columns[final_columns %in% c("Micro_5342_VIS") == FALSE]
+
+saveRDS(final_columns, "interm/pseudo_bulk_QC_columns.rds")
+
+```
+

@@ -1,0 +1,128 @@
+```{r}
+
+source("baseline.R")
+library(data.table)
+
+```
+
+```{r}
+
+pct_metrics <- readRDS("source/all_pct_metrics_RN012.rds")
+
+plot_table <- c()
+
+for (cell in names(all_canonical_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% all_canonical_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df        <- plot_table %>% dplyr::select(gene, region, pct1) %>% pivot_wider(names_from   = region, values_from  = pct1)
+# turn into a matrix and set rownames
+mat           <- as.matrix(mat_df[,-1])
+rownames(mat) <- mat_df$gene
+
+mat_sd <- sd(mat, na.rm = TRUE)
+
+
+```
+
+```{r}
+
+png(paste0("figures/Figure - 1 - pct1 preProd.png"), width = 650, height = 700)
+
+pheatmap(mat,
+         cluster_rows = FALSE, cluster_cols = FALSE,
+         show_rownames = TRUE, show_colnames = TRUE,
+         annotation_col = NULL, annotation_row = df_row, annotation_colors = annotation_colors,
+         fontsize_col = 12, fontsize_row = 12, fontsize = 10,
+         cellwidth = 19, cellheight = 12,
+         clustering_method = clustering_method,
+         legend = TRUE, legend_labels = NULL, legend_breaks = NULL,
+         border_color = NA, color = colorRampPalette(c("blue", "white", "red"))(50), # Custom color palette
+         angle_col = 45)
+
+dev.off()
+
+```
+
+
+```{r}
+
+plot_table <- c()
+
+
+for (cell in names(all_canonical_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% all_canonical_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df        <- plot_table %>% dplyr::select(gene, region, pct2) %>% pivot_wider(names_from   = region, values_from  = pct2)
+# turn into a matrix and set rownames
+bg_mat           <- as.matrix(mat_df[,-1])
+rownames(bg_mat) <- mat_df$gene
+
+```
+
+```{r}
+
+png(paste0("figures/Figure - S1 - pct2 preProd.png"), width = 650, height = 700)
+
+pheatmap(bg_mat,
+         cluster_rows = FALSE, cluster_cols = FALSE,
+         show_rownames = TRUE, show_colnames = TRUE,
+         annotation_col = NULL, annotation_row = df_row, annotation_colors = annotation_colors,
+         fontsize_col = 12, fontsize_row = 12, fontsize = 10,
+         cellwidth = 19, cellheight = 12,
+         clustering_method = clustering_method,
+         breaks = seq(0, 100, length.out=(100 + 1)),
+         legend = TRUE, legend_labels = NULL, legend_breaks = NULL,
+         border_color = NA, color = colorRampPalette(c("blue", "white", "red"))(101), # Custom color palette
+         angle_col = 45)
+
+dev.off()
+
+```
+
+
+```{r}
+
+df <- as.data.frame(cbind(apply(mat, 1, sd, na.rm = TRUE), 
+                          apply(bg_mat, 1, sd, na.rm = TRUE), 
+                          apply(mat, 1, mean, na.rm = TRUE), 
+                          apply(bg_mat, 1, mean, na.rm = TRUE)))
+
+colnames(df) <- c("sd_fid", "sd_bg", "mean_fid", "mean_bg")
+plot(df$mean_fid, df$mean_bg)
+
+df$Cell <- as.character(inverse_gene_cell_hash)
+
+neuronal_marker_list <- c(all_canonical_gene_list[["Excite"]], all_canonical_gene_list[["Inhibit"]])
+glial_marker_list    <- setdiff(Reduce(union, all_canonical_gene_list), neuronal_marker_list)
+
+neuronal_df          <- df[neuronal_marker_list, ]
+glial_df             <- df[glial_marker_list, ]
+
+plot(neuronal_df$mean_fid, neuronal_df$mean_bg)
+plot(glial_df$mean_fid, glial_df$mean_bg)
+
+
+wilcox.test(neuronal_df$mean_fid, glial_df$mean_fid)
+wilcox.test(neuronal_df$mean_bg, glial_df$mean_bg)
+
+t.test(neuronal_df$mean_fid, glial_df$mean_fid)
+
+```
+
+```{r}
+
+summary(lm(mean_bg ~ mean_fid, data = df))
+summary(lm(mean_bg ~ mean_fid, data = neuronal_df))
+summary(lm(mean_bg ~ mean_fid, data = glial_df))
+write.xlsx(df, "Production/Supplementary Table S4 - Canonical marker fidelity and background statistics.xlsx", rowNames=TRUE)
+df_stats <- df %>% group_by(Cell) %>% summarise(cell_wise_fig = mean(mean_fid), cell_wise_bg = mean(mean_bg))
+write.xlsx(df_stats, "Production/Supplementary Table S4B - Canonical marker fidelity and background statistics.xlsx", rowNames=TRUE)
+
+
+```
