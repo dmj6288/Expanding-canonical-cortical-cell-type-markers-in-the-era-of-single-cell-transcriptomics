@@ -1,0 +1,20 @@
+#!/bin/bash -l
+
+#SBATCH --time=16:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=16GB
+#SBATCH --mail-user=dennis00@ucsb.edu
+#SBATCH --mail-type=ALL
+#SBATCH --time=15-00:00:00
+#SBATCH --job-name="MARK"
+#SBATCH --array=1
+#SBATCH --output=/home/local/ADS/dennis00/Yi_Lab/Lab_WorkDir/Dennis/MarkerPaper/slurm_archive/RN012/%j_DE_table.out
+
+cd $SLURM_SUBMIT_DIR
+
+cd /home/local/ADS/dennis00/Yi_Lab/Lab_WorkDir/Dennis/MarkerPaper
+
+Rscript marker_list.R
+echo marker_list.R
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"

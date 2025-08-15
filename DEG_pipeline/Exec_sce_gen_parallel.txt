@@ -1,0 +1,22 @@
+#!/bin/bash -l
+
+#SBATCH --time=16:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4GB
+#SBATCH --mail-user=dennis00@ucsb.edu
+#SBATCH --mail-type=END,FAIL
+#SBATCH --job-name="sgmeta_parallel"
+#SBATCH --array=1-19  # <-- Replace 20 with number of SCE files
+#SBATCH --output=/home/local/ADS/dennis00/Yi_Lab/Lab_WorkDir/Dennis/MarkerPaper/slurm_archive/RN012/sgmeta_%A_%a.out
+
+cd $SLURM_SUBMIT_DIR
+cd /home/local/ADS/dennis00/Yi_Lab/Lab_WorkDir/Dennis/MarkerPaper/
+
+echo "SLURM Job ID        : ${SLURM_JOB_ID}"
+echo "SLURM Array Task ID : ${SLURM_ARRAY_TASK_ID}"
+echo "Starting R script..."
+
+Rscript sgmeta_full_covariates_parallel.R
+
+echo "✅ Finished processing task ${SLURM_ARRAY_TASK_ID}"

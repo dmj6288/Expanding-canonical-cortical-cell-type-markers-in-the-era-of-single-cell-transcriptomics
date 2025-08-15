@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=LOO_frq_clust
+#SBATCH --output=logs/RN012/LOO_val_frq_put_%j.out
+#SBATCH --error=logs/RN012/LOO_val_frq_put_%j.err
+#SBATCH --cpus-per-task=24
+#SBATCH --mem=4G
+#SBATCH --time=12:00:00
+
+cd $SLURM_SUBMIT_DIR
+cd /home/local/ADS/dennis00/Yi_Lab/Lab_WorkDir/Dennis/MarkerPaper/validation_scripts/
+
+# adjust these paths:
+
+Rscript LOO_cluster_putative.R

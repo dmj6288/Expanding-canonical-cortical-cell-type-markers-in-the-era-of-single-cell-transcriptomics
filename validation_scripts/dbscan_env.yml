@@ -1,0 +1,23 @@
+name: dbscan_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # core R
+  - r-base>=4.2
+  - r-essentials
+
+  # CRAN packages
+  - r-fnn
+  - r-igraph
+  - r-future
+  - r-future.apply
+  - r-data.table
+  - r-mclust
+  - r-matrix
+  - r-dbscan
+
+  # Bioconductor via conda
+  - r-biocmanager
+  - bioconductor-singlecellexperiment
