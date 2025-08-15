@@ -1,0 +1,12 @@
+name: CortexMarker
+title: CortexMarker
+username: dmj6288
+account: dmj6288
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14545063
+bundleId: 10716960
+url: https://dmj6288.shinyapps.io/CortexMarker/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
