@@ -1,0 +1,211 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+gene_lists  <- readRDS("../Figure 2 - Putative Marker Facts/results/putative_gene_set_region_frequentV4.rds")
+background  <- readRDS("source/common_genes_agg_RN012.rds")
+
+```
+
+
+```{r}
+
+all_GO_terms      <- c()
+all_GO_terms_plot <- c()
+
+for (cell in cell_names){
+
+  gene_list       <- gene_lists[[cell]]           # Replace with your gene list
+  background_list <- background
+
+  # Convert gene symbols to Entrez IDs
+  gene_list_entrez       <- bitr(gene_list, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+  background_list_entrez <- bitr(background_list, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+
+  # Extract Entrez IDs
+  gene_list_ids <- gene_list_entrez$ENTREZID
+  background_ids <- background_list_entrez$ENTREZID
+
+  go_enrichment <- enrichGO(
+      gene          = gene_list_ids,          # List of genes of interest (Entrez IDs)
+      universe      = background_ids,         # Background list of genes (Entrez IDs)
+      OrgDb         = org.Hs.eg.db,           # Use appropriate organism database
+      keyType       = "ENTREZID",             # Key type for gene IDs
+      ont           = "BP",                   # Ontology: "BP" (Biological Process), "MF" (Molecular Function), or "CC" (Cellular Component)
+      pAdjustMethod = "BH",                   # Method for p-value adjustment
+      pvalueCutoff  = 0.05,                   # P-value cutoff
+      qvalueCutoff  = 0.05                    # FDR cutoff
+  )
+
+  # View results
+  current_GO_table <- go_enrichment@result
+  current_GO_table <- current_GO_table[order(current_GO_table$p.adjust, decreasing = FALSE), ]
+
+  entrez_ids <- unique(unlist(strsplit(paste(current_GO_table$geneID, collapse = "/"), "/")))
+  # Convert Entrez IDs to gene symbols (use the appropriate OrgDb for your organism)
+  converted_ids <- bitr(entrez_ids, fromType = "ENTREZID", toType = "SYMBOL", OrgDb = org.Hs.eg.db)
+  # Create a named vector for mapping
+  id_to_symbol <- setNames(converted_ids$SYMBOL, converted_ids$ENTREZID)
+
+  # Replace Entrez IDs in the `geneID` column with symbols
+  current_GO_table$geneID <- sapply(current_GO_table$geneID, function(ids) {
+      ids_vector <- unlist(strsplit(ids, "/"))
+      symbols_vector <- id_to_symbol[ids_vector]
+      paste(symbols_vector, collapse = "/")
+  })
+
+  current_GO_table$Cell <- cell
+  all_GO_terms <- rbind(all_GO_terms,  current_GO_table)
+  all_GO_terms_plot <- rbind(all_GO_terms_plot,  head(current_GO_table, 5))
+
+}
+
+saveRDS(all_GO_terms, "interm/all_GO_terms.rds")
+
+saveRDS(all_GO_terms_plot, "interm/all_GO_terms_plot.rds")
+
+```
+
+
+```{r}
+
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+
+all_GO_terms      <- readRDS("interm/all_GO_terms.rds")
+all_GO_terms_plot <- readRDS("interm/all_GO_terms_plot.rds")
+
+all_GO_terms_plot$log_p_adjust <- -log10(all_GO_terms_plot$p.adjust)
+
+# Convert data to matrix for clustering
+go_matrix <- dcast(all_GO_terms_plot, Description ~ Cell, value.var = "log_p_adjust", fill = 0)
+row.names(go_matrix) <- go_matrix$Description
+go_matrix <- go_matrix[, -1]
+
+# Perform clustering on rows (GO terms)
+row_clustering <- hclust(dist(go_matrix))
+row_order <- row.names(go_matrix)[row_clustering$order]
+
+# Perform clustering on columns (cell types) if needed
+col_clustering <- hclust(dist(t(go_matrix)))
+col_order <- colnames(go_matrix)[col_clustering$order]
+
+# Reorder the data for ggplot
+all_GO_terms_plot$Description <- factor(all_GO_terms_plot$Description, levels = row_order)
+all_GO_terms_plot$Cell <- factor(all_GO_terms_plot$Cell, levels = col_order)
+
+```
+
+```{r}
+
+go_data <- all_GO_terms_plot
+
+# Calculate max value for scale
+max_value <- max(go_data$log_p_adjust)
+
+# Plot with adjusted color scale and no white spaces
+p <- ggplot(go_data, aes(x = Cell, y = Description, fill = log_p_adjust)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient(low = "blue", high = "red", limits = c(0, max_value), na.value = "blue") +
+    # geom_text(aes(label = ifelse(Cell == levels(go_data$Cell)[length(levels(go_data$Cell))], geneID, "")),
+    #           hjust = -0.1, color = "black", size = 3) +
+    theme_minimal() +
+    labs(title = "Clustered GO Term Enrichment Heatmap", x = "Cell Type", y = "GO Terms", fill = "-log10(p.adjust)") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 15),
+        axis.text.y = element_text(size = 12),
+        plot.margin = unit(c(1, 4, 1, 1), "cm"),  # Adjust margins for better spacing
+        legend.position = "bottom",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 15),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  # Add a black border
+        plot.background = element_rect(color = "black", size = 1.5)            # Ensure the full plot has a border
+    ) +
+    guides(fill = guide_colorbar(barwidth = 15, barheight = 0.5)) +
+    coord_cartesian(clip = "off")
+
+p
+ggsave(filename = "figures/GO_terms_markers_RN012.png", plot = p, device = "png", width = 3500, height = 2500, units = "px")
+
+```
+
+```{r}
+# Reorder the data based on the row clustering
+# Reverse the row order
+corrected_row_order <- rev(row_order)
+
+# Reorder the data based on the row clustering
+ordered_data <- go_data[match(row_order, go_data$Description), ]
+
+# Extract the geneIDs corresponding to the ordered rows
+ordered_geneIDs <- ordered_data$geneID
+ordered_geneIDs
+
+# Reorder the geneIDs based on the corrected row order
+ordered_geneIDs <- ordered_data$geneID[match(corrected_row_order, ordered_data$Description)]
+ordered_geneIDs
+
+write.csv(ordered_geneIDs, "interm/geneIDs_for_Figure.csv")
+```
+
+```{r}
+
+
+writexl::write_xlsx(all_GO_terms, "Production/Marker Paper - Supplementary Table 5A - Functional Analysis of putative marker sets.xlsx")
+
+writexl::write_xlsx(as.data.frame(all_GO_terms_plot), "Production/Marker Paper - Supplementary Table 5B - Functional Analysis of putative marker sets.xlsx")
+
+
+```
+
+
+
+<!-- ```{r} -->
+
+<!-- gene_list <- c("BRCA1", "TP53", "EGFR")           # Replace with your gene list -->
+<!-- background_list <- c("BRCA1", "TP53", "EGFR", "GATA3", "MYC", "PTEN", "CDKN2A")  # Replace with your background genes -->
+
+<!-- # Convert gene symbols to Entrez IDs -->
+<!-- gene_list_entrez <- bitr(gene_list, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db) -->
+<!-- background_list_entrez <- bitr(background_list, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db) -->
+
+<!-- # Extract Entrez IDs -->
+<!-- gene_list_ids <- gene_list_entrez$ENTREZID -->
+<!-- background_ids <- background_list_entrez$ENTREZID -->
+
+<!-- go_enrichment <- enrichGO( -->
+<!--     gene          = gene_list_ids,          # List of genes of interest (Entrez IDs) -->
+<!--     universe      = background_ids,         # Background list of genes (Entrez IDs) -->
+<!--     OrgDb         = org.Hs.eg.db,           # Use appropriate organism database -->
+<!--     keyType       = "ENTREZID",             # Key type for gene IDs -->
+<!--     ont           = "BP",                   # Ontology: "BP" (Biological Process), "MF" (Molecular Function), or "CC" (Cellular Component) -->
+<!--     pAdjustMethod = "BH",                   # Method for p-value adjustment -->
+<!--     pvalueCutoff  = 0.05,                   # P-value cutoff -->
+<!--     qvalueCutoff  = 0.05                    # FDR cutoff -->
+<!-- ) -->
+
+<!-- # View results -->
+<!-- head(go_enrichment) -->
+
+<!-- # Plot results -->
+<!-- dotplot(go_enrichment, showCategory = 20)  # Dot plot of the top 20 categories -->
+<!-- barplot(go_enrichment, showCategory = 20)  # Bar plot of the top 20 categories -->
+
+<!-- write.csv(as.data.frame(go_enrichment), "go_enrichment_results.csv", row.names = FALSE) -->
+
+<!-- # Subset significant terms -->
+<!-- significant_terms <- go_enrichment@result[go_enrichment@result$p.adjust < 0.05, ] -->
+<!-- print(significant_terms) -->
+
+<!-- # Perform enrichment map visualization (requires enrichplot package) -->
+<!-- library(enrichplot) -->
+<!-- emapplot(go_enrichment) -->
+
+<!-- ``` -->
+
