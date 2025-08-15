@@ -1,0 +1,227 @@
+```{r}
+
+source("baseline.R")
+
+```
+
+
+```{r}
+
+pct_metrics <- readRDS("source/all_pct_metrics_RN012.rds")
+
+plot_table <- c()
+
+for (cell in names(all_canonical_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% all_canonical_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df_can        <- plot_table %>% dplyr::select(gene, region, pct1) %>% pivot_wider(names_from   = region, values_from  = pct1)
+# turn into a matrix and set rownames
+mat_can           <- as.matrix(mat_df_can[,-1])
+rownames(mat_can) <- mat_df_can$gene
+
+plot_table <- c()
+
+
+for (cell in names(all_canonical_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% all_canonical_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df_can        <- plot_table %>% dplyr::select(gene, region, pct2) %>% pivot_wider(names_from   = region, values_from  = pct2)
+# turn into a matrix and set rownames
+bg_mat_can           <- as.matrix(mat_df_can[,-1])
+rownames(bg_mat_can) <- mat_df_can$gene
+
+```
+
+```{r}
+
+plot_table <- c()
+putative_gene_list <- readRDS("results/putative_gene_set_region_frequentV4.rds")
+
+
+for (cell in names(putative_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% putative_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df_put        <- plot_table %>% dplyr::select(gene, region, pct1) %>% pivot_wider(names_from   = region, values_from  = pct1)
+# turn into a matrix and set rownames
+mat_put           <- as.matrix(mat_df_put[,-1])
+rownames(mat_put) <- mat_df_put$gene
+
+
+plot_table <- c()
+
+
+for (cell in names(putative_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% putative_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df_put        <- plot_table %>% dplyr::select(gene, region, pct2) %>% pivot_wider(names_from   = region, values_from  = pct2)
+# turn into a matrix and set rownames
+bg_mat_put           <- as.matrix(mat_df_put[,-1])
+rownames(bg_mat_put) <- mat_df_put$gene
+
+
+```
+
+```{r}
+
+df_can <- as.data.frame(cbind(apply(mat_can, 2, sd, na.rm = TRUE), 
+                          apply(bg_mat_can, 2, sd, na.rm = TRUE), 
+                          apply(mat_can, 2, mean, na.rm = TRUE), 
+                          apply(bg_mat_can, 2, mean, na.rm = TRUE)))
+
+colnames(df_can) <- c("sd_fid", "sd_bg", "mean_fid", "mean_bg")
+df_can$Region    <- colnames(mat_can)
+
+
+
+df_put <- as.data.frame(cbind(apply(mat_put, 2, sd, na.rm = TRUE), 
+                          apply(bg_mat_put, 2, sd, na.rm = TRUE), 
+                          apply(mat_put, 2, mean, na.rm = TRUE), 
+                          apply(bg_mat_put, 2, mean, na.rm = TRUE)))
+
+colnames(df_put) <- c("sd_fid", "sd_bg", "mean_fid", "mean_bg")
+df_put$Region    <- colnames(mat_put)
+
+```
+
+
+```{r}
+
+# Reshape canonical
+x_can <- as.vector(df_can$mean_bg)
+y_can <- as.vector(df_can$mean_fid)
+
+# Flatten matrix and retain gene names (rownames) and column names
+genes_can <- rep(rownames(mat_can), times = ncol(mat_can))
+samples_can <- rep(colnames(mat_can), each = nrow(mat_can))
+
+# Reshape putative
+x_put <- as.vector(df_put$mean_bg)
+y_put <- as.vector(df_put$mean_fid)
+
+library(ggplot2)
+
+# build a single data.frame
+df_can <- data.frame(FPR = x_can, TPR = y_can, Type = "Canonical", Region = df_can$Region)
+df_put <- data.frame(FPR = x_put, TPR = y_put, Type = "Putative", Region = df_put$Region)
+df     <- rbind(df_can, df_put)
+
+
+df <- df %>%
+  mutate(
+    across(c(FPR, TPR), ~ .x / 100)
+  )
+
+# make sure Region is a factor with 19 levels
+df$Region <- factor(df$Region)
+
+
+
+```
+
+```{r}
+
+
+p <-  ggplot(df, aes(x = FPR, y = TPR, colour = Type, label = Region)) +
+      geom_point(size = 6)                                                            +
+      #geom_line()                                                                    +
+      geom_text_repel(max.overlaps = Inf, size = 3.5)                                   +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red", linewidth = 1.5)    +
+      scale_color_manual(values = c("#4682B4", "#4BB446"))                                      +
+      labs(x = "FPR", y = "TPR",
+      title = "Canonical vs Putative Marker Expression", color = "Region")            +
+      xlim(0, 1) + ylim(0, 1) +
+      theme_classic() + theme(axis.text.x.bottom = element_text(size = 24),
+                              axis.text.y.left = element_text(size = 24),
+                              axis.title.y.left = element_text(size = 17.5),
+                              axis.title.x.bottom = element_text(size = 17.5),
+                              legend.position = "none")
+p
+ggsave("figures/simple_ROC curve.png",
+       width = 2500, height = 2500, units = "px", plot = p, device = "png")
+```
+
+```{r}
+
+df$Diff <- df$TPR - df$FPR
+
+p <- ggplot(data = df, aes(x = Type, y = Diff, colour = Type, fill = Type)) + geom_boxplot(linewidth = 1.5) + 
+      ylim(0, 1)                                                                             + 
+      scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+      scale_color_manual(values = c("black", "black")) +
+      theme_classic() + theme(axis.text.x.bottom = element_text(size = 30), 
+                              axis.text.y.left = element_text(size = 30),
+                              axis.title.y.left = element_blank(),
+                              axis.title.x.bottom = element_blank(),
+                              legend.position = "none") 
+
+p
+
+ggsave(filename = "figures/TPR_FPR_difference.png", width = 2500, height = 3200, units = "px", plot = p, device = "png")
+
+```
+
+
+```{r}
+
+library(pracma)
+
+x_ext <- c(0, df[df$Type == "Canonical", ]$FPR, 1)
+y_ext <- c(0, df[df$Type == "Canonical", ]$TPR, 1)
+
+auroc  <- trapz( sort(x_ext), y_ext[order(x_ext)] )
+print(auroc)
+
+x_ext <- c(0, df[df$Type == "Putative", ]$FPR, 1)
+y_ext <- c(0, df[df$Type == "Putative", ]$TPR, 1)
+
+auroc  <- trapz( sort(x_ext), y_ext[order(x_ext)] )
+print(auroc)
+
+# > 
+# > auroc  <- trapz( sort(x_ext), y_ext[order(x_ext)] )
+# > print(auroc)
+# [1] 0.9072967
+# > 
+# > x_ext <- c(0, df[df$Type == "Putative", ]$FPR, 1)
+# > y_ext <- c(0, df[df$Type == "Putative", ]$TPR, 1)
+# > 
+# > auroc  <- trapz( sort(x_ext), y_ext[order(x_ext)] )
+# > print(auroc)
+# [1] 0.9619404
+# > 
+
+
+```
+
+```{r}
+
+library(rstatix)
+
+wilcox_test(data = df, formula = Diff ~ Type, paired = TRUE)
+
+```
+
+
+<!-- ```{r} -->
+
+<!-- > wilcox_test(data = df, formula = Diff ~ Type, paired = TRUE) -->
+<!-- # A tibble: 1 × 7 -->
+<!--   .y.   group1    group2      n1    n2 statistic       p -->
+<!-- * <chr> <chr>     <chr>    <int> <int>     <dbl>   <dbl> -->
+<!-- 1 Diff  Canonical Putative    19    19        11 0.00021 -->
+
+<!-- ``` -->
+
+

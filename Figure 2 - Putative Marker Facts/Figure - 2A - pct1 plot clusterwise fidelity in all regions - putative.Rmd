@@ -1,0 +1,197 @@
+
+```{r}
+
+source("baseline.R")
+library(tidyr)
+
+putative_gene_list <- readRDS("results/putative_gene_set_region_frequentV4.rds")
+dds                <- readRDS("source/dds.rds") # FROM FIGURE 1
+
+
+vst_data            <- vst(dds)
+vst_mat             <- assay(vst_data)
+putative_vst_mat    <- vst_mat[rownames(vst_mat) %in% unlist(putative_gene_list), ]
+
+```
+
+```{r}
+
+inverse_gene_cell_hash <- list()
+
+for (key in names(putative_gene_list)){
+  for (gene in putative_gene_list[[key]]){
+    inverse_gene_cell_hash[[gene]] <- key
+  }
+}
+
+df_row                                  <- data.frame(unlist(putative_gene_list))
+rownames(df_row)                        <- unlist(putative_gene_list)
+colnames(df_row)                        <- "Marker"
+
+for(marker in df_row$Marker){
+  df_row[marker, "color"] <- paste0(inverse_gene_cell_hash[[marker]], " marker")
+}
+df_row <- df_row[-c(1)]
+#colnames(df_row) <- NULL
+
+# df_col                                  <- data.frame(unique(plot_table$region))
+# rownames(df_col)                        <- unique(plot_table$region)
+# colnames(df_col)                        <- "Region"
+# df_col$region                      <- tstrsplit(unique(plot_table$region), "_", fixed = TRUE)[[1]]
+
+colors <- c("red", "green", "blue", "orange", "violet", "brown")#brewer.pal(6, "Set1")
+
+# Define your colors as a named vector
+color_vector <- c(
+  "Astro marker"   = colors[1],
+  "Excite marker"  = colors[2],
+  "Inhibit marker" = colors[3],
+  "Micro marker"   = colors[4],
+  "Oligo marker"   = colors[5],
+  "OPC marker"     = colors[6]
+)
+
+# Define your colors as a named vector
+cell_vector <- c(
+  "Astro"   = colors[1],
+  "Excite"  = colors[2],
+  "Inhibit" = colors[3],
+  "Micro"   = colors[4],
+  "Oligo"   = colors[5],
+  "OPC"     = colors[6]
+)
+
+
+annotation_colors <- list()
+
+annotation_colors$color <- color_vector
+
+```
+
+
+```{r}
+
+pct_metrics <- readRDS("source/all_pct_metrics_RN012.rds")
+
+
+plot_table <- c()
+
+for (cell in names(all_canonical_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% putative_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df        <- plot_table %>% dplyr::select(gene, region, pct1) %>% pivot_wider(names_from   = region, values_from  = pct1)
+# turn into a matrix and set rownames
+mat_put           <- as.matrix(mat_df[,-1])
+rownames(mat_put) <- mat_df$gene
+
+```
+
+```{r}
+
+png(paste0("figures/Figure - 2A - pct1 preProd - putative - fidelity.png"), width = 650, height = 700)
+
+pheatmap(mat_put,
+         cluster_rows = FALSE, cluster_cols = FALSE,
+         show_rownames = TRUE, show_colnames = TRUE,
+         annotation_col = NULL, annotation_row = df_row, annotation_colors = annotation_colors,
+         fontsize_col = 12, fontsize_row = 12, fontsize = 10,
+         cellwidth = 19, cellheight = 12,
+         clustering_method = clustering_method,
+         legend = TRUE, legend_labels = NULL, legend_breaks = NULL,
+         border_color = NA, color = colorRampPalette(c("blue", "white", "red"))(50), # Custom color palette
+         angle_col = 45)
+
+dev.off()
+
+```
+
+```{r}
+
+plot_table <- c()
+
+for (cell in names(all_canonical_gene_list)){
+  
+  plot_table <- rbind(plot_table, pct_metrics[pct_metrics$gene %in% putative_gene_list[[cell]] & pct_metrics$cluster == cell, ])
+    
+}
+
+mat_df        <- plot_table %>% dplyr::select(gene, region, pct2) %>% pivot_wider(names_from   = region, values_from  = pct2)
+# turn into a matrix and set rownames
+mat_put_bg           <- as.matrix(mat_df[,-1])
+rownames(mat_put_bg) <- mat_df$gene
+
+png(paste0("figures/Figure - 2 - pct2 preProd - putative - fidelity.png"), width = 650, height = 700)
+
+pheatmap(mat_put_bg,
+         cluster_rows = FALSE, cluster_cols = FALSE,
+         show_rownames = TRUE, show_colnames = TRUE, 
+         annotation_col = NULL, annotation_row = df_row, annotation_colors = annotation_colors,
+         fontsize_col = 12, fontsize_row = 12, fontsize = 10,
+         cellwidth = 19, cellheight = 12,
+         clustering_method = clustering_method,
+         breaks = seq(0, 100, length.out=(100 + 1)),
+         legend = TRUE, legend_labels = NULL, legend_breaks = NULL,
+         border_color = NA, color = colorRampPalette(c("blue", "white", "red"))(101), # Custom color palette
+         angle_col = 45)
+
+dev.off()
+
+```
+
+```{r}
+
+df <- as.data.frame(cbind(apply(mat_put, 1, sd, na.rm = TRUE), 
+                          apply(mat_put_bg, 1, sd, na.rm = TRUE), 
+                          apply(mat_put, 1, mean, na.rm = TRUE), 
+                          apply(mat_put_bg, 1, mean, na.rm = TRUE)))
+
+colnames(df) <- c("sd_fid", "sd_bg", "mean_fid", "mean_bg")
+plot(df$mean_fid, df$mean_bg)
+
+
+```
+
+```{r}
+
+mean_and_sd_data <- c()
+
+for (cell in cell_names){
+  
+  for (gene in putative_gene_list[[cell]]){
+   
+    if (gene != "HLA-DRA"){
+     
+      mean_and_sd_data <- rbind(mean_and_sd_data, 
+                              c(gene, mean(putative_vst_mat[gene, tstrsplit(colnames(putative_vst_mat), "_")[[1]] == cell]), 
+                                      sd(putative_vst_mat[gene, tstrsplit(colnames(putative_vst_mat), "_")[[1]] == cell])))
+       
+    }
+    
+  }
+  
+}
+
+df_put <-as.data.frame(mean_and_sd_data)
+colnames(df_put) <- c("gene", "exp", "sd")
+
+```
+
+```{r}
+
+library(readr)
+cluster_wise_mean_and_sd_canonical_markers <- read_csv("D:/Yi/Marker Paper Analyses/Cell Marker paper - RN012 - No NEUROD6/Figure 1/results/cluster_wise_mean_and_sd_canonical_markers.csv")
+#View(cluster_wise_mean_and_sd_canonical_markers)
+
+df_can <- as.data.frame(cluster_wise_mean_and_sd_canonical_markers[, c(2, 3, 4)])
+colnames(df_can) <- c("gene", "exp", "sd")
+
+df_can$type <- "canonical"
+df_put$type <- "putative"
+
+df <- rbind(df_can, df_put)
+
+```
+

@@ -1,0 +1,71 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+
+final_DE_table_with_DESeq2_specificity_and_fidelity_RN009 <- readRDS("interm/final_local_metric_DE_table_RN012.rds")
+
+regions_to_avoid <- c()
+for (region in names(final_DE_table_with_DESeq2_specificity_and_fidelity_RN009)){
+  
+  if(length(names(final_DE_table_with_DESeq2_specificity_and_fidelity_RN009[[region]])) < 6){
+    
+    regions_to_avoid <- c(regions_to_avoid, region)
+  }
+  
+}
+
+saveRDS(regions_to_avoid, "interm/regions_to_avoid.rds")
+
+
+```
+
+<!-- # DEPRECATED -->
+
+<!-- ```{r} -->
+
+<!-- rm(list=ls()) -->
+
+<!-- library(biomaRt) -->
+<!-- library(dplyr) -->
+
+<!-- # Function to get gene lengths from Ensembl using biomaRt -->
+<!-- get_gene_lengths <- function(gene_list, dataset = "hsapiens_gene_ensembl", id_type = "ensembl_gene_id") { -->
+<!--   # Connect to Ensembl -->
+<!--   ensembl <- useEnsembl(biomart = "ensembl", dataset = dataset) -->
+
+<!--   # Fetch gene lengths from Ensembl -->
+<!--   gene_info <- getBM( -->
+<!--     attributes = c(id_type, "transcript_length"), -->
+<!--     filters = id_type, -->
+<!--     values = gene_list, -->
+<!--     mart = ensembl -->
+<!--   ) -->
+
+<!--   # Compute average transcript length per gene -->
+<!--   gene_lengths <- gene_info %>% -->
+<!--     group_by(across(all_of(id_type))) %>% -->
+<!--     summarise(Length = mean(transcript_length, na.rm = TRUE)) %>% -->
+<!--     ungroup() -->
+
+<!--   return(gene_lengths) -->
+<!-- } -->
+
+<!-- # Extract gene IDs from rownames -->
+<!-- gene_list <- readRDS("interm/common_genes_agg_RN009.rds") -->
+
+<!-- # Fetch gene lengths -->
+<!-- gene_lengths <- get_gene_lengths(gene_list, dataset = "hsapiens_gene_ensembl", id_type = "hgnc_symbol") -->
+
+<!-- # Print first few rows of retrieved gene lengths -->
+<!-- head(gene_lengths) -->
+
+<!-- saveRDS(gene_lengths, "interm/gene_lengths_RN009.rds") -->
+
+<!-- ``` -->
+

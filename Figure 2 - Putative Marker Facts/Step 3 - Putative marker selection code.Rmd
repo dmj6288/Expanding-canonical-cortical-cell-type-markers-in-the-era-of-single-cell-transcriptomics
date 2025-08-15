@@ -1,0 +1,82 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+
+```{r}
+
+DE_tables_with_specificity <- readRDS("interm/final_local_metric_DE_table_RN012.rds")
+filtered_DESeq_matrix      <- readRDS("interm/DESeq2_normalized_counts.rds")
+regions_to_avoid           <- readRDS("interm/regions_to_avoid.rds")
+
+global_gene_info_matrix    <-
+
+for (region in names(DE_tables_with_specificity)){
+
+  for (cell in names(DE_tables_with_specificity[[region]])){
+
+    cell_type_region_gene_info        <- DE_tables_with_specificity[[region]][[cell]]
+    cell_type_region_gene_info$Cell   <- cell
+    cell_type_region_gene_info$Region <- region
+    cell_type_region_gene_info        <- cell_type_region_gene_info %>% rownames_to_column("gene")
+    global_gene_info_matrix           <- rbind(global_gene_info_matrix, cell_type_region_gene_info)
+
+  }
+
+}
+
+df_long <- readRDS("source/normalized_cell_region_expression.rds")
+
+# Prepare global_gene_info_matrix: move rownames into a column
+# global_gene_info_matrix2 <- global_gene_info_matrix %>% rownames_to_column("gene")
+
+
+df_merged <- df_long %>%
+  inner_join(global_gene_info_matrix,
+             by = c("gene" = "gene",
+                    "cluster" = "cluster",
+                    "region" = "Region"))
+
+saveRDS(df_merged, "interm/merged_gene_info.rds")
+
+```
+
+  
+
+```{r}
+
+# DEPENDENCIES
+
+pct_metrics                <- readRDS("source/all_pct_metrics_RN012.rds")
+cell_counts                <- read_excel("source/Supplementary Table S2 - Cell Counts.xlsx")
+filtered_DESeq_matrix      <- readRDS("source/DESeq2_normalized_counts.rds")
+df_merged                  <- readRDS("interm/merged_gene_info.rds")
+
+```
+
+```{r}
+
+fidelity_thresh            <- list(80  , 75, 90  , 95  , 95, 90)
+background_thresh          <- list(15  , 15, 5  , 5  , 10, 5)
+cohen_d_thresh             <- list(2.25 , 0, 2 , 4.5, 1 , 2)
+
+names(fidelity_thresh)     <- cell_names
+names(background_thresh)   <- cell_names
+names(cohen_d_thresh)      <- cell_names
+
+results <- cell_specific_generate_gene_sets(fidelity_thresh = fidelity_thresh, background_thresh = background_thresh, 
+                                            padj_thresh = 0.1, log2FC_thresh = 0, 
+                                            cohen_d_thresh = cohen_d_thresh, most_frequent = 5,
+                                            filtered_DESeq_matrix, df_merged, cell_names, regions_to_avoid)
+
+global_gene_set_results <- results[[1]]
+putative                <- results[[2]]
+canonical               <- results[[3]]
+
+saveRDS(global_gene_set_results, "results/putative_gene_set_region_frequentV4.rds")
+
+```
+

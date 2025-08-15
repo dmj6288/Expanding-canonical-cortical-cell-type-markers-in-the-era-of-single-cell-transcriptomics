@@ -1,0 +1,108 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+# DEPENDENCIES
+
+pct_metrics                <- readRDS("fidelity_param_sweep_dependencies/all_pct_metrics_RN012.rds")
+cell_counts                <- read_excel("fidelity_param_sweep_dependencies/Supplementary Table 2B - postQC.xlsx")
+filtered_DESeq_matrix      <- readRDS("fidelity_param_sweep_dependencies/DESeq2_normalized_counts.rds")
+df_merged                  <- readRDS("interm/merged_gene_info.rds")
+
+```
+```{r}
+canonical_markers <- c("SLC17A7", "NEUN", "GAD1", "GAD2", "GFAP", "OLIG2")
+
+df_markers <- df_merged# %>% filter(gene %in% unlist(all_canonical_gene_list))
+
+df_ranked <- df_markers %>% group_by(region, cluster) %>% arrange(desc(fidelity)) %>%
+                    mutate(fidelity_rank = row_number())                  %>%
+                    arrange(background)                                   %>%
+                    mutate(background_rank = row_number())                %>%
+                    arrange(desc(specificity_values))                     %>%
+                    mutate(specificity_rank = row_number())               %>%
+                    arrange(desc(log2FoldChange))                         %>%
+                    mutate(lfc_rank = row_number())                       %>%
+                    arrange(padj)                                         %>%
+                    mutate(padj_rank = row_number())                      %>%
+                    arrange(desc(agg_expr))                               %>%
+                    mutate(aggr_rank = row_number())                      %>%
+                    ungroup()
+
+
+df_markers_rank <- df_ranked %>% dplyr::select(gene, region, cluster, 
+                                               fidelity_rank, background_rank, specificity_rank,
+                                               lfc_rank, padj_rank, aggr_rank)
+
+df_can_markers_rank <- df_markers_rank %>% filter(gene %in% unlist(all_canonical_gene_list))
+
+
+final_table <- c()
+for (cell in names(all_canonical_gene_list)){
+  
+  for (gene in all_canonical_gene_list[[cell]]){
+    
+    current_df <- df_can_markers_rank[df_can_markers_rank$gene == gene & df_can_markers_rank$cluster == cell, ]
+    final_table <- rbind(final_table, current_df)
+      
+  }
+  
+}
+
+final_table$avg_score <- final_table$fidelity_rank + final_table$background_rank + final_table$lfc_rank + final_table$padj_rank
+
+region_averaged_score <- final_table %>% group_by(gene, cluster) %>% summarise(mean_region_score = mean(avg_score), sd_region_score = sd(avg_score))
+
+```
+
+```{r}
+
+all
+df_markers <- df_merged# %>% filter(gene %in% unlist(all_canonical_gene_list))
+
+df_ranked <- df_markers %>% group_by(region, cluster) %>% arrange(desc(fidelity)) %>%
+                    mutate(fidelity_rank = row_number())                  %>%
+                    arrange(background)                                   %>%
+                    mutate(background_rank = row_number())                %>%
+                    arrange(desc(specificity_values))                     %>%
+                    mutate(specificity_rank = row_number())               %>%
+                    arrange(desc(log2FoldChange))                         %>%
+                    mutate(lfc_rank = row_number())                       %>%
+                    arrange(padj)                                         %>%
+                    mutate(padj_rank = row_number())                      %>%
+                    arrange(desc(agg_expr))                               %>%
+                    mutate(aggr_rank = row_number())                      %>%
+                    ungroup()
+
+
+df_markers_rank <- df_ranked %>% dplyr::select(gene, region, cluster, 
+                                               fidelity_rank, background_rank, specificity_rank,
+                                               lfc_rank, padj_rank, aggr_rank)
+
+gene_list <- readRDS("results/putative_gene_set_region_frequentV4.rds")
+
+df_can_markers_rank <- df_markers_rank %>% filter(gene %in% unlist(gene_list))
+
+put_final_table <- c()
+for (cell in names(gene_list)){
+  
+  for (gene in gene_list[[cell]]){
+    
+    current_df <- df_can_markers_rank[df_can_markers_rank$gene == gene & df_can_markers_rank$cluster == cell, ]
+    put_final_table <- rbind(put_final_table, current_df)
+      
+  }
+  
+}
+
+put_final_table$avg_score <- put_final_table$fidelity_rank + put_final_table$background_rank + put_final_table$lfc_rank + put_final_table$padj_rank
+
+put_region_averaged_score <- put_final_table %>% group_by(gene, cluster) %>% summarise(mean_region_score = mean(avg_score), sd_region_score = sd(avg_score))
+
+```
+

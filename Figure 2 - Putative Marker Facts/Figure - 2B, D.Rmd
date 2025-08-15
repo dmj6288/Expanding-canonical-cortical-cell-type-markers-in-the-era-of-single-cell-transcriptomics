@@ -1,0 +1,137 @@
+
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+global_gene_set_results <- readRDS("results/putative_gene_set_region_frequentV4.rds")
+dds           <- readRDS("source/dds.rds")                                         # FROM FIGURE 1
+seurat_object <- readRDS("source/final_seurat_object_RN012.rds")                   # FROM FIGURE 1
+matrix_columns      <- tstrsplit(colnames(seurat_object), "_")[[1]]
+
+vst_data            <- vst(dds)
+vst_mat             <- assay(vst_data)
+
+```
+
+
+```{r}
+
+
+inverse_gene_cell_hash <- list()
+
+for (key in names(global_gene_set_results)){
+  for (gene in global_gene_set_results[[key]]){
+    inverse_gene_cell_hash[[gene]] <- key
+  }
+}
+
+#scaled_global_count_matrix              <- scaled_global_count_matrix[random_sample, ]
+
+df_row                                  <- data.frame(unlist(global_gene_set_results))
+rownames(df_row)                        <- unlist(global_gene_set_results)
+colnames(df_row)                        <- "Marker"
+
+for(marker in df_row$Marker){
+  df_row[marker, "color"] <- paste0(inverse_gene_cell_hash[[marker]], " marker")
+}
+df_row <- df_row[-c(1)]
+
+df_col                                  <- data.frame(matrix_columns)
+rownames(df_col)                        <- colnames(canonical_vst_mat)
+colnames(df_col)                        <- "Cell Type"
+
+
+# Load RColorBrewer for color palettes
+
+colors <- c("red", "green", "blue", "orange", "violet", "brown")#brewer.pal(6, "Set1")
+
+# Define your colors as a named vector
+color_vector <- c(
+  "Astro marker"   = colors[1],
+  "Excite marker"  = colors[2],
+  "Inhibit marker" = colors[3],
+  "Micro marker"   = colors[4],
+  "Oligo marker"   = colors[5],
+  "OPC marker"     = colors[6]
+)
+
+# Define your colors as a named vector
+cell_vector <- c(
+  "Astro"   = colors[1],
+  "Excite"  = colors[2],
+  "Inhibit" = colors[3],
+  "Micro"   = colors[4],
+  "Oligo"   = colors[5],
+  "OPC"     = colors[6]
+)
+
+
+annotation_colors <- list()
+
+annotation_colors$color <- color_vector
+annotation_colors$`Cell Type` <- cell_vector
+
+
+
+
+
+png(paste0("figures/Figure - 2C - putative final_hmap_frequency_gene_set.png"), width = 2400, height = 1250)
+
+pheatmap(
+canonical_vst_mat,
+cluster_rows = TRUE,
+cluster_cols = TRUE,
+show_rownames = TRUE,
+show_colnames = TRUE,
+annotation_col = df_col,
+annotation_row = df_row,
+annotation_colors = annotation_colors,
+fontsize_col = 5,
+fontsize_row = 10,
+fontsize = 25,
+cellwidth = 6,
+cellheight = 10,
+clustering_method = "ward.D2",
+legend = TRUE,                  # Ensure color bar is shown
+legend_labels = NULL,           # Use default labels (or specify custom)
+legend_breaks = NULL,           # Use default breakpoints
+border_color = NA,              # Remove borders if unnecessary
+color = colorRampPalette(c("blue", "white", "red"))(50), # Custom color palette
+angle_col = 90
+)
+
+dev.off()
+
+```
+
+```{r}
+
+putative_vst_mat   <- vst_mat[rownames(vst_mat) %in% unlist(global_gene_set_results), ]
+ 
+if (dim(putative_vst_mat)[1] > 0){
+   
+  dist_matrix <- dist(t(putative_vst_mat), method = "euclidean")
+  hc          <- hclust(dist_matrix,  method = "ward.D2")
+   
+  predicted_labels  <- cutree(hc, k = 6)
+  silhouette_values <- silhouette(predicted_labels, dist_matrix)
+   
+  avg_silhouette <- mean(silhouette_values[, 3])
+   
+  ari <- adjustedRandIndex(matrix_columns, predicted_labels)
+   
+   
+}
+
+#> ari
+#[1] 0.9955574
+#> avg_silhouette
+#[1] 0.4829554
+#> 
+
+```
+
