@@ -1,0 +1,203 @@
+```{r}
+
+source("baseline.R")
+
+```
+
+```{r}
+
+meta_data <- readxl::read_xlsx("../Metadata file generator scripts/Metadata generator files - Evolution paper/Ma et. al/author_source/snRNA-seq_Human_cell_meta.xlsx")
+meta_data <- meta_data[meta_data$class %in% c("Glia", "ExN", "InN"), ]
+
+```
+
+
+```{r}
+
+canonical_dlPFC_subtypes <- unique(c(tstrsplit(meta_data$subtype, " ")[[2]], tstrsplit(meta_data$subtype, " ")[[3]]))
+#saveRDS(canonical_dlPFC_subtypes, "interm/canonical_dlPFC_subtypes_RN012.rds")
+
+```
+
+```{r}
+
+subtype_markers       <- readxl::read_xlsx("interm/Supplementary Table S8 - subtype markers by region.xlsx")
+subtype_markers       <- read.csv("interm/subtype_DEG_table_top15.csv")
+subtype_markers_dlPFC <- subtype_markers[subtype_markers$Region == "dlPFC", ]$DEGs
+
+bootstrapped_markers <- list()
+# 
+# for (i in c(1:10000)){
+# 
+#   bootstrapped_markers[[i]] <- sample(subtype_markers_dlPFC, size = length(canonical_dlPFC_subtypes), replace = FALSE)
+#   
+# }
+# 
+# #saveRDS(bootstrapped_markers, "interm/dlPFC_subtype_markers_bootstrap_RN012.rds")
+# saveRDS(subtype_markers_dlPFC, "interm/dlPFC_subtype_markers_top15_genes_RN012.rds")
+
+```
+
+
+<!-- ```{r} -->
+
+<!-- loo_fold_louvain <- function(i) { -->
+
+<!--   print(i) -->
+
+<!-- X_boot   <- X[, markers] -->
+<!-- # 1) split train/test -->
+<!-- #train_idx <- sc_meta$region != s -->
+<!-- train_idx <- sample(c(1:dim(X_boot)[1]), size = 0.7*dim(X_boot)[1], replace = FALSE) -->
+<!-- test_idx  <- setdiff(c(1:dim(X_boot)[1]), train_idx) -->
+<!-- #test_idx  <- !train_idx -->
+
+<!-- X_train   <- X_boot[train_idx, , drop = FALSE] -->
+<!-- X_test    <- X_boot[test_idx,  , drop = FALSE] -->
+
+<!-- #knn_res   <- get.knn(X_train, k = 20)    # choose ~10–30 neighbors -->
+<!-- #edges     <- do.call(rbind, lapply(seq_len(nrow(knn_res$nn.index)), function(i) { -->
+<!-- #  cbind(rep(i, ncol(knn_res$nn.index)), knn_res$nn.index[i,]) -->
+<!-- #})) -->
+<!-- #g         <- graph_from_edgelist(edges, directed = FALSE) -->
+<!-- #g         <- simplify(g)                       # collapse duplicate edges -->
+
+<!-- # 3) run Louvain community detection -->
+<!-- #comm      <- cluster_louvain(g) -->
+<!-- #cl_train  <- membership(comm) -->
+
+<!-- pca_res <- prcomp(X_train, center=TRUE, scale.=TRUE) -->
+<!-- X_pca10 <- pca_res$x[,1:20] -->
+
+<!-- # 2) HDBSCAN -->
+<!-- hdb <- hdbscan(X_pca10, minPts = 20) -->
+<!-- cl_train <- hdb$cluster   # 0 = noise -->
+<!-- clusters  <- sort(unique(cl_train)) -->
+
+<!-- # 4) compute centroids and assign held-out cells (same as before) -->
+<!-- centroids   <- t(sapply(clusters, function(cl) {colMeans( X_train[ cl_train == cl, , drop = FALSE ] )})) -->
+<!-- rownames(centroids) <- clusters -->
+<!-- assign_test <- apply(X_test, 1, function(x) which.min(colSums((centroids - x)^2))) -->
+
+<!-- # 5) ARI -->
+<!-- true_labels <- as.integer(factor(sc_meta$cluster_id[test_idx])) -->
+<!-- ari_val     <- adjustedRandIndex(true_labels, assign_test) -->
+
+<!-- data.table(study = i, ari = ari_val) -->
+
+<!-- } -->
+
+<!-- ``` -->
+
+
+```{r}
+
+all_files <- list.files("source/dlPFC/cluster/")
+
+can_files <- all_files[grepl("canonical", all_files, fixed = TRUE)]
+put_files <- all_files[grepl("putative", all_files, fixed = TRUE)]
+
+all_data  <- c()
+
+for (file in can_files){
+  
+  current_file <- readRDS(paste0("source/dlPFC/cluster/", file))
+  
+  all_data <- c(all_data, current_file$ari)
+  
+}
+
+for (file in put_files){
+  
+  current_file <- readRDS(paste0("source/dlPFC/cluster/", file))
+  
+  all_data <- c(all_data, current_file$ari)
+  
+}
+
+df <- as.data.frame(all_data)
+
+df$type <- c(rep("canonical", length(can_files)), rep("putative", length(put_files)))
+
+# p <- ggplot(data = df, aes(x = type, y = all_data, fill = type)) + geom_violin() +
+#   theme_classic() +
+#   scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_text(size = 20),
+#         axis.title.x = element_blank(),
+#         axis.title.y = element_text(size = 20),
+#         legend.position = "none")
+# 
+# p
+
+mean_ARI <- df %>% group_by(type) %>% summarise(mean = mean(all_data))
+
+```
+
+
+```{r}
+
+# results/RN012/dlPFC/class/LOO_classification_dlPFC_NNC_RN012_canonical.rds  results/RN012/dlPFC/class/LOO_classification_dlPFC_putative_RN012.rds
+# > a <- readRDS("results/RN012/dlPFC/class/LOO_classification_dlPFC_NNC_RN012_canonical.rds")
+# > b <- readRDS("results/RN012/dlPFC/class/LOO_classification_dlPFC_putative_RN012.rds")
+# > a
+#    accuracy  macro_F1
+# 1 0.9456311 0.8696633
+# > b
+#    accuracy macro_F1
+# 1 0.9674757 0.931143
+# > q()
+# > mean_ARI[mean_ARI$type == "canonical", ]$mean[1]
+# [1] 0.1227751
+# > mean_ARI[mean_ARI$type == "putative", ]$mean[1]
+# [1] 0.3356797
+
+#subtype_validation_metrics <- as.data.frame(c(0.1620718, 0.6725206, 0.9503972, 0.8756195, 0.9684025, 0.9285745))
+subtype_validation_metrics <- as.data.frame(c(0.1227751, 0.3356797, 
+                                              0.9456311, 0.8696633, 0.9674757, 0.931143))
+
+subtype_validation_metrics$metric <- c("ARI",       "ARI",      "Accuracy",  "F1",         "Accuracy", "F1")
+subtype_validation_metrics$type   <- c("Canonical", "Putative", "Canonical", "Canonical",  "Putative", "Putative")
+subtype_validation_metrics$type <- as.factor(subtype_validation_metrics$type)
+colnames(subtype_validation_metrics)[1] <- "value"
+
+library(ggplot2)
+
+p <- ggplot(subtype_validation_metrics, aes(x = metric, y = value, fill = type)) +
+  geom_bar(stat = "identity", position = position_dodge(), color     = "black", linewidth = 0.4, width = 0.5) +         # border width (use linewidth = 1.5 if your ggplot2 >= 3.4.0)) +
+  theme_classic() +
+  scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+   scale_color_manual(values = c("black", "black")) +
+  theme(legend.position = "none", axis.title.x.bottom = element_blank(), axis.title.y.left = element_blank()) +
+  labs(x = "Metric",
+       y = "Score",
+       fill = "Type") 
+
+p
+ggsave(filename = "figures/subtype_validation_dlPFC_NNC_SEED.png", plot = p, width = 1200, height = 900, units = "px", device = "png")
+
+```
+
+```{r}
+
+suppressWarnings(suppressMessages(library(VennDiagram)))
+suppressWarnings(suppressMessages(library(ggplot2)))
+suppressWarnings(suppressMessages(library(ggplotify)))
+suppressWarnings(suppressMessages(library(ggpubr)))
+suppressWarnings(suppressMessages(library(ggVennDiagram)))
+suppressWarnings(suppressMessages(library(gmp)))
+suppressWarnings(suppressMessages(library(hash)))
+suppressWarnings(suppressMessages(library(gridExtra)))
+
+draw.pairwise.venn(area1 = length(canonical_dlPFC_subtypes), 
+                   area2 = length(unique(subtype_markers_dlPFC)),
+              cross.area = length(intersect(canonical_dlPFC_subtypes,
+                                            unique(subtype_markers_dlPFC))), 
+                   fill = "white", col = c("#4682B4", "#4BB446"), lwd = 5, 
+                  alpha = c(0.5, 0.5), cex = 2.5, 
+                 scaled = TRUE, cat.cex = 2, 
+                cat.pos = 1, inverted = TRUE)
+
+```
+
+
