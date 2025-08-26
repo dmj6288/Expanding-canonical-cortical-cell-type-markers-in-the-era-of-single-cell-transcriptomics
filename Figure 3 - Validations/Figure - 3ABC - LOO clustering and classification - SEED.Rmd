@@ -1,0 +1,232 @@
+```{r}
+
+source("baseline.R")
+
+#validation_metrics <- readRDS("source/total_pan_results_RN012.rds")
+validation_metrics_SEED <- readRDS("source/validation_RN012_mean.rds")
+
+# colnames(validation_metrics) <- c("study",  "putative_accuracy", "putative_F1", "canonical_accuracy", "canonical_F1", "putative_ari", "canonical_ari")
+
+```
+
+
+```{r}
+
+all_data <- c()
+
+putative                 <- validation_metrics_SEED[, c("study", "mean_putative")]
+putative$set_type        <- "putative"
+colnames(putative)[1:2]  <- c("study", "ARI")
+canonical                <- validation_metrics_SEED[, c("study", "mean_canonical")]
+canonical$set_type       <- "canonical"
+colnames(canonical)[1:2] <- c("study", "ARI")
+
+ARI_plot_data      <- rbind(putative, canonical)
+
+all_data <- as.data.frame(rbind(all_data, ARI_plot_data))
+colnames(all_data) <- c("study", "value", "set_type")
+all_data$metric <- "ARI"
+
+p <- ggplot(ARI_plot_data, aes(study, ARI, fill = set_type)) + geom_bar(stat="identity", position = "dodge", width=0.65) +
+                                                                 #   labs(title="Multiple Bar plots")                    +
+                                                                    scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+                                                                    xlab("Cortical Region") + ylab("Leave-One-Out Adjusted Rand Index") +
+                                                                    theme_bw()                                          +
+                                                                    theme(axis.text.x = element_text(angle = 45, size = 20, hjust = 1),
+                                                                          axis.text.y = element_text(size = 20),
+                                                                          axis.title.x = element_text(size = 20),
+                                                                          axis.title.y = element_text(size = 20))
+p
+ggsave(filename = "figures/SEED/Figure - 3A - LOO-ARI scores.png", plot = p, device = "png", width = 4000, height = 2100, units = "px")
+
+wilcox.test(ARI ~ set_type, data = ARI_plot_data)
+
+
+# p <- ggplot(data = ARI_plot_data, aes(x = set_type, y = ARI, fill = set_type)) + geom_violin() +
+#   theme_classic() +
+#   ylim(c(0, 1))   +
+#   scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_text(size = 20),
+#         axis.title.x = element_blank(),
+#         axis.title.y = element_text(size = 20),
+#         legend.position = "none")
+# 
+# ggsave(filename = "figures/Figure - 3 ARI - violin.png", plot = p, device = "png", width = 2000, height = 2100, units = "px")
+# 
+
+```
+
+
+```{r}
+
+putative                 <- validation_metrics_SEED[, c("study", "putative_accuracy")]
+putative$set_type        <- "putative"
+colnames(putative)[1:2]  <- c("study", "accuracy")
+canonical                <- validation_metrics_SEED[, c("study", "canonical_accuracy")]
+canonical$set_type       <- "canonical"
+colnames(canonical)[1:2] <- c("study", "accuracy")
+
+ARI_plot_data      <- rbind(putative, canonical)
+ARI_plot_data$metric <- "Accuracy"
+
+colnames(ARI_plot_data) <- c("study", "value", "set_type", "metric")
+all_data <- as.data.frame(rbind(all_data, ARI_plot_data))
+
+p <- ggplot(ARI_plot_data, aes(study, value, fill = set_type)) + geom_bar(stat="identity", position = "dodge", width=0.65) +
+                                                                  #  labs(title="Multiple Bar plots")                    +
+                                                                    scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+                                                                    xlab("Cortical Region") + ylab("Leave-One-Out Accuracy") +
+                                                                    theme_bw()                                          +
+                                                                    theme(axis.text.x = element_text(angle = 45, size = 20, hjust = 1),
+                                                                          axis.text.y = element_text(size = 20),
+                                                                          axis.title.x = element_text(size = 20),
+                                                                          axis.title.y = element_text(size = 20))
+p
+ggsave(filename = "figures/SEED/Figure - 3B - LOO-accuracy scores.png", plot = p, device = "png", width = 4000, height = 2100, units = "px")
+
+wilcox.test(value ~ set_type, data = ARI_plot_data)
+
+# p <- ggplot(data = ARI_plot_data, aes(x = set_type, y = value, fill = set_type)) + geom_violin() +
+#   theme_classic() +
+#   scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_text(size = 20),
+#         axis.title.x = element_blank(),
+#         axis.title.y = element_text(size = 20),
+#         legend.position = "none")
+# 
+# ggsave(filename = "figures/Figure - 3 Accuracy - violin.png", plot = p, device = "png", width = 2000, height = 2100, units = "px")
+
+
+```
+
+
+
+```{r}
+
+putative                 <- validation_metrics_SEED[, c("study", "putative_macro_F1")]
+putative$set_type        <- "putative"
+colnames(putative)[1:2]  <- c("study", "F1")
+canonical                <- validation_metrics_SEED[, c("study", "canonical_macro_F1")]
+canonical$set_type       <- "canonical"
+colnames(canonical)[1:2] <- c("study", "F1")
+
+ARI_plot_data      <- rbind(putative, canonical)
+
+ARI_plot_data$metric <- "F1"
+
+colnames(ARI_plot_data) <- c("study", "value", "set_type", "metric")
+all_data <- as.data.frame(rbind(all_data, ARI_plot_data))
+
+
+p <- ggplot(ARI_plot_data, aes(study, value, fill = set_type)) + geom_bar(stat="identity", position = "dodge", width=0.65) +
+                                                                  #  labs(title="Multiple Bar plots")                    +
+                                                                    scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+                                                                    xlab("Cortical Region") + ylab("Leave-One-Out macro F1") +
+                                                                    theme_bw()                                          +
+                                                                    theme(axis.text.x = element_text(angle = 45, size = 20, hjust = 1),
+                                                                          axis.text.y = element_text(size = 20),
+                                                                          axis.title.x = element_text(size = 20),
+                                                                          axis.title.y = element_text(size = 20))
+p
+ggsave(filename = "figures/SEED/Figure - 3C - LOO-ARI macro_F1.png", plot = p, device = "png", width = 4000, height = 2100, units = "px")
+
+wilcox.test(value ~ set_type, data = ARI_plot_data)
+
+
+# p <- ggplot(data = ARI_plot_data, aes(x = set_type, y = value, fill = set_type)) + geom_violin() +
+#   theme_classic() +
+#   scale_fill_manual(values = c("#4682B4", "#4BB446")) +
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_text(size = 20),
+#         axis.title.x = element_blank(),
+#         axis.title.y = element_text(size = 20),
+#         legend.position = "none")
+# 
+# ggsave(filename = "figures/Figure - 3 F1 - violin.png", plot = p, device = "png", width = 2000, height = 2100, units = "px")
+
+
+
+```
+
+
+<!-- ```{r} -->
+<!-- > all_data %>% group_by(set_type, metric) %>% summarise(mean_val = mean(value)) -->
+<!-- `summarise()` has grouped output by 'set_type'. You can override using the `.groups` argument. -->
+<!-- # A tibble: 6 × 3 -->
+<!-- # Groups:   set_type [2] -->
+<!--   set_type  metric   mean_val -->
+<!--   <chr>     <chr>       <dbl> -->
+<!-- 1 canonical ARI         0.379 -->
+<!-- 2 canonical Accuracy    0.967 -->
+<!-- 3 canonical F1          0.915 -->
+<!-- 4 putative  ARI         0.437 -->
+<!-- 5 putative  Accuracy    0.958 -->
+<!-- 6 putative  F1          0.926 -->
+
+<!-- ``` -->
+
+```{r}
+
+df <- all_data
+
+
+library(ggplot2)
+library(dplyr)
+
+df$metric <- as.factor(df$metric)
+df$set_type <- as.factor(df$set_type)
+
+# calculate means for points
+plot_mean_data <- df %>%
+  group_by(metric, set_type) %>%
+  summarise(mean_value = mean(value), .groups = "drop")
+
+p <- ggplot(df, aes(x = metric, y = value, fill = set_type)) +
+  geom_violin(
+    aes(fill = set_type),
+    scale = "width", position = position_dodge(width = 0.8),
+    width = 0.5,                              # <---- controls violin thickness
+    alpha = 1, trim = FALSE
+  ) +
+  theme_bw() +
+  ylab("") +
+  xlab("Metric") +
+  theme(
+    axis.text = element_text(size = 14),
+    axis.ticks = element_blank(),
+    legend.position = "top"
+  ) +
+  scale_fill_manual(values = c("#4682B4", "#4BB446"))
+p
+ggsave(
+  filename = "figures/SEED/split_violin_metrics.png",
+  plot = p,
+  width = 1200, height = 1200, units = "px", device = "png"
+)
+
+```
+
+
+```{r}
+
+df <- all_data
+
+library(ggplot2)
+library(ggdist)
+library(dplyr)
+
+# ensure factor
+df$metric <- as.factor(df$metric)
+df$set_type <- as.factor(df$set_type)
+
+# calculate means for black triangles
+plot_mean_data <- df %>%
+  group_by(set_type, metric) %>%
+  summarise(mean_value = mean(value), SD = sd(value), .groups = "drop")
+
+
+```
+
+
