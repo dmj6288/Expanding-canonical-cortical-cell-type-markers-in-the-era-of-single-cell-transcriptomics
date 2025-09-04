@@ -1,9 +1,26 @@
-CellBender scripts contain the scripts used to remove ambient RNA contamination from single-cell data for all the datasets. (Corresponding reports are also provided)
+
+The full pipeline comprises of 4 steps:
+
+1. Ambient RNA removal.
+
+The folder CellBender scripts contain the scripts used to remove ambient RNA contamination from single-cell data for all the datasets. (Corresponding reports are also provided)
+
+2. single-cell QC
 
 Server scripts refer to the upstream pipeline used for single-cell QC, metadata matching, pseudo-bulk aggregation and differential expression analysis (QC reports provided)
 
+3. Data preparation and differential Expression analysis
+
+3.1 - first run the seurat_aggregation scripts to aggregate the five split datasets.
+3.2 - Run scAgg.R to obtain the single-cell global matrix
+3.3 - Run sgmeta to subset barcodes to author provided barcodes and match metadata files to cells.
+3.4 - Run config to configure the datasets to pseudo-bulk aggergated matrices and ready for DEX
+3.5 - Run the DE analysis.
+
+4. The folders markerd Figures 1-4 is the code required to generate all the figures in the paper including the supplementary tables and figures.
+
+Source files required for running Figures 1-4 and the global single-cell file and associated metadata post QC are available at:
+Figshare: https://figshare.com/articles/dataset/Expanding_canonical_cortical_cell_type_markers_in_the_era_of_single-cell_transcriptomics/29992147
+
 CortexMapper scripts refers to the RShiny app used to deploy the app at https://dmj6288.shinyapps.io/CortexMapperV1/
-
-Source files required for running Figures 1-4 and the global single-cell file and associated metadata post QC are available at GEO are available on GEO Accession number:
-
 
