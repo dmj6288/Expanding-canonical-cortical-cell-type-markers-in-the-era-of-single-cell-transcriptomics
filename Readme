@@ -12,10 +12,10 @@ Server scripts refer to the upstream pipeline used for single-cell QC, metadata 
 3. Data preparation and differential Expression analysis
 
 3.1 - first run the seurat_aggregation scripts to aggregate the five split datasets.
-3.2 - Run scAgg.R to obtain the single-cell global matrix
-3.3 - Run sgmeta to subset barcodes to author provided barcodes and match metadata files to cells.
-3.4 - Run config to configure the datasets to pseudo-bulk aggergated matrices and ready for DEX
-3.5 - Run the DE analysis.
+3.2 - Run scAgg.R to obtain the single-cell global matrix (Used for validation steps, full matrix also available at Figshare).
+3.3 - Run sgmeta: sgmeta_full_covariates_parallel.R to subset barcodes to author provided barcodes and match metadata files to cells.
+3.4 - Run config: config_parallel.R to configure the datasets to pseudo-bulk aggergated matrices and ready for DEX
+3.5 - Run the DE analysis: DE_test_parallel.R.
 
 4. The folders markerd Figures 1-4 is the code required to generate all the figures in the paper including the supplementary tables and figures.
 
